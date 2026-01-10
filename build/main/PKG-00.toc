@@ -375,7 +375,7 @@
    'Adoptium\\jdk-21.0.8.9-hotspot\\bin\\api-ms-win-core-synch-l1-2-0.dll',
    'BINARY'),
   ('assets\\installer.ico',
-   'C:\\Users\\victo\\Documents\\Pessoal\\Jose.Pessoa\\Projetos\\github\\alfabetizando-sistemas\\assets\\installer.ico',
+   'C:\\Users\\victo\\Documents\\Pessoal\\Jose.Pessoa\\Projetos\\github\\alfabetizando-sistemas\\assets\\icon.ico',
    'DATA'),
   ('assets\\logo_sistema.png',
    'C:\\Users\\victo\\Documents\\Pessoal\\Jose.Pessoa\\Projetos\\github\\alfabetizando-sistemas\\assets\\logo_sistema.png',

@@ -15,7 +15,7 @@ class TelaPrincipal(tk.Tk):
         self.resizable(False, False)
 
         # ===== ÍCONE DA JANELA =====
-        self.iconbitmap(resource_path("assets/installer.ico"))
+        self.iconbitmap(resource_path("assets/icon.ico"))
 
         # ===== CONTAINER PRINCIPAL =====
         container = tk.Frame(self, bg="#f4f6f8")
