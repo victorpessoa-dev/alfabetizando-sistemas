@@ -1,0 +1,3 @@
+# Dependências do projeto Alfabetizando Sistemas
+# Tkinter é built-in no Python, não precisa instalar
+Pillow>=10.0.0  # Para manipulação de imagens (PIL)
