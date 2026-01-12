@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import datetime
 
 from ui.aluno_form import AlunoForm
 
@@ -13,8 +14,8 @@ class TelaAlunos:
     def __init__(self, root):
         self.root = root
         self.root.title("Cadastro de Alunos")
-        self.root.geometry("900x600")  # Aumentado para melhor visualização
-        self.root.resizable(True, True)  # Permitir redimensionamento
+        self.root.geometry("1000x700")
+        self.root.resizable(False, False)
 
         # Limpar conteúdo anterior da janela
         for widget in self.root.winfo_children():
@@ -26,6 +27,27 @@ class TelaAlunos:
         self.criar_topo()
         self.criar_tabela()
         self.criar_botoes()
+
+       # ===== RODAPÉ =====
+        self.frame_footer = tk.Frame(self.root)
+        self.frame_footer.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
+
+        rodape = tk.Label(
+            self.frame_footer,
+            text="© 2026 Alfabetizando Sistemas",
+            font=("Segoe UI", 9),
+            fg="#666"
+        )
+        rodape.pack(side=tk.LEFT)
+
+        # ===== DATA E HORA =====
+        self.lbl_datetime = tk.Label(
+            self.frame_footer,
+            font=("Segoe UI", 10),
+            fg="#333"
+        )
+        self.lbl_datetime.pack(side=tk.RIGHT)
+        self.atualizar_datetime()
 
         self.carregar_lista()
 
@@ -48,6 +70,12 @@ class TelaAlunos:
 
         self.entry_pesquisa = tk.Entry(self.frame_topo, textvariable=self.var_pesquisa, width=40)
         self.entry_pesquisa.pack(side=tk.LEFT, padx=5)
+
+        btn_pesquisa = tk.Button(self.frame_topo, text="Buscar", command=self.filtrar)
+        btn_pesquisa.pack(side=tk.LEFT, padx=5)
+
+        self.entry_pesquisa.bind("<Return>", lambda e: self.filtrar())
+
         # Tooltip
         self.entry_pesquisa.bind("<Enter>", lambda e: self.mostrar_tooltip("Digite para filtrar alunos"))
         self.entry_pesquisa.bind("<Leave>", lambda e: self.ocultar_tooltip())
@@ -65,10 +93,15 @@ class TelaAlunos:
 
 
     def criar_tabela(self):
+        # Frame para a tabela com altura limitada
+        self.frame_tabela = tk.Frame(self.root, height=500)
+        self.frame_tabela.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        self.frame_tabela.grid_propagate(False)
+
         colunas = ("id", "nome", "serie", "turno", "Escola")
 
         self.tree = ttk.Treeview(
-            self.root,
+            self.frame_tabela,
             columns=colunas,
             show="headings",
             selectmode="browse"
@@ -87,19 +120,19 @@ class TelaAlunos:
         self.tree.column("Escola", width=150)
 
         # Scrollbars
-        v_scroll = ttk.Scrollbar(self.root, orient="vertical", command=self.tree.yview)
-        h_scroll = ttk.Scrollbar(self.root, orient="horizontal", command=self.tree.xview)
+        v_scroll = ttk.Scrollbar(self.frame_tabela, orient="vertical", command=self.tree.yview)
+        h_scroll = ttk.Scrollbar(self.frame_tabela, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
 
-        self.tree.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0,10))
-        v_scroll.grid(row=2, column=1, sticky="ns")
-        h_scroll.grid(row=3, column=0, sticky="ew")
+        self.tree.pack(side="left", fill="both", expand=True)
+        v_scroll.pack(side="right", fill="y")
+        h_scroll.pack(side="bottom", fill="x")
 
         self.tree.bind("<<TreeviewSelect>>", self.selecionar)
         self.tree.bind("<Double-1>", lambda e: self.editar())  # Double-click to edit
 
         # Configurar pesos da grid
-        self.root.grid_rowconfigure(2, weight=1)
+        self.root.grid_rowconfigure(1, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
 
     def ordenar_coluna(self, col):
@@ -129,7 +162,7 @@ class TelaAlunos:
 
     def criar_botoes(self):
         self.frame_botoes = tk.Frame(self.root)
-        self.frame_botoes.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        self.frame_botoes.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
 
         self.btn_editar = tk.Button(
             self.frame_botoes,
@@ -257,3 +290,9 @@ class TelaAlunos:
 
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao excluir aluno: {e}")
+
+    def atualizar_datetime(self):
+        if self.root.winfo_exists() and self.lbl_datetime.winfo_exists():
+            now = datetime.datetime.now()
+            self.lbl_datetime.config(text=now.strftime("%d/%m/%Y %H:%M:%S"))
+            self.root.after(1000, self.atualizar_datetime)

@@ -27,9 +27,9 @@ def criar_aluno(dados):
             id, nome, nascimento, nome_mae, nome_pai,
             tel_whatsapp, tel_secundario, email,
             rua, bairro, numero_casa, complemento,
-            cidade, escola, serie, turno
+            cidade, escola, serie, turno, laudo_medico
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (id_aluno, *dados))
 
     pasta = criar_pasta_aluno(id_aluno, dados[0])
@@ -124,7 +124,8 @@ def atualizar_aluno(id_aluno, dados):
             escola=?,
             serie=?,
             turno=?,
-            pasta=?
+            pasta=?,
+            laudo_medico=?
         WHERE id=?
     """, (*dados, nova_pasta, id_aluno))
 

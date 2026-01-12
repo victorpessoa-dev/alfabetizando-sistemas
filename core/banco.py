@@ -51,6 +51,7 @@ def inicializar():
                 turno IN ('Manhã', 'Tarde')
             ),
             pasta TEXT,
+            laudo_medico INTEGER DEFAULT 0,
             ativo INTEGER DEFAULT 1,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )

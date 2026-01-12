@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
+import datetime
 
 from ui.utils import resource_path
 from ui.tela_aluno import TelaAlunos
@@ -11,7 +12,7 @@ class TelaPrincipal(tk.Tk):
         super().__init__()
 
         self.title("Alfabetizando Sistemas")
-        self.geometry("800x520")
+        self.geometry("1000x700")
         self.resizable(False, False)
 
         # ===== ÍCONE DA JANELA =====
@@ -106,14 +107,32 @@ class TelaPrincipal(tk.Tk):
         lbl_logo_escola.pack(side="bottom", expand=True)
 
         # ===== RODAPÉ =====
+        # ===== RODAPÉ =====
+        self.frame_footer = tk.Frame(self)
+        self.frame_footer.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=5)
+
         rodape = tk.Label(
-            self,
+            self.frame_footer,
             text="© 2026 Alfabetizando Sistemas",
             font=("Segoe UI", 9),
-            fg="#666",
-            bg="#f4f6f8"
+            fg="#666"
         )
-        rodape.pack(side="bottom", pady=8)
+        rodape.pack(side=tk.LEFT)
+
+        # ===== DATA E HORA =====
+        self.lbl_datetime = tk.Label(
+            self.frame_footer,
+            font=("Segoe UI", 10),
+            fg="#333"
+        )
+        self.lbl_datetime.pack(side=tk.RIGHT)
+        self.atualizar_datetime()
+
+    def atualizar_datetime(self):
+        if self.winfo_exists() and hasattr(self, 'lbl_datetime') and self.lbl_datetime.winfo_exists():
+            now = datetime.datetime.now()
+            self.lbl_datetime.config(text=now.strftime("%d/%m/%Y %H:%M:%S"))
+            self.after(1000, self.atualizar_datetime)
 
     def abrir_alunos(self):
         TelaAlunos(self)
