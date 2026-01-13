@@ -48,9 +48,16 @@ def init_db():
                 turno IN ('Manhã', 'Tarde')
             ),
             pasta TEXT,
+            laudo_medico INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
         """)
+
+        # Adiciona coluna laudo_medico se não existir (para migração)
+        try:
+            cursor.execute("ALTER TABLE alunos ADD COLUMN laudo_medico INTEGER DEFAULT 0")
+        except:
+            pass
 
         # Remove coluna ativo se existir (para migração)
         try:

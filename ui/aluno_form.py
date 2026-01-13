@@ -59,13 +59,32 @@ class AlunoForm(tk.Toplevel):
     def __init__(self, master, id_aluno=None, callback=None):
         super().__init__(master)
 
+        # Manter a janela do formulário sempre acima da janela principal
+        self.transient(master)
+        self.grab_set()
+
         self.id_aluno = id_aluno
         self.callback = callback
         self.pasta_aluno = None
         self.caminho_foto_temp = None
 
+        # Referências aos botões de upload
+        self.btn_upload_contrato = None
+        self.btn_upload_documento = None
+        self.btn_abrir_pasta = None
+
+        # Ajustar tamanho da janela para o original
         self.geometry("1100x750")
         self.resizable(False, False)
+
+        # Foto do aluno - posicionada à direita com preenchimento
+        self.frame_foto = tk.Frame(self, relief="sunken", bd=2, bg="#e0e0e0")
+        self.frame_foto.place(x=860, y=15, width=220, height=240)
+        self.frame_foto.grid_propagate(False)
+        self.lbl_foto = tk.Label(self.frame_foto, text="Foto do Aluno", font=("Segoe UI", 10, "bold"), bg="#e0e0e0")
+        self.lbl_foto.pack(expand=True, fill=tk.BOTH)
+        self.btn_foto = tk.Button(self, text="Selecionar Foto", command=self.selecionar_foto, font=("Segoe UI", 9))
+        self.btn_foto.place(x=860, y=265, width=220)
 
         self.protocol("WM_DELETE_WINDOW", self.confirmar_fechar)
 
@@ -80,118 +99,169 @@ class AlunoForm(tk.Toplevel):
 
     def criar_formulario(self):
         frame = tk.Frame(self)
-        frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
-
+        frame.place(x=15, y=15, width=830, height=720)
+        
+        # Configurar colunas: esquerda para inputs
         frame.columnconfigure(0, weight=1)
         frame.columnconfigure(1, weight=1)
         frame.columnconfigure(2, weight=1)
-        frame.columnconfigure(3, weight=1)
 
-        def campo(label, row, col=0, colspan=1):
-            tk.Label(frame, text=label, font=("Segoe UI", 9)).grid(row=row, column=col, sticky="w", pady=(5,2), padx=10)
-            e = tk.Entry(frame, font=("Segoe UI", 9))
-            e.grid(row=row + 1, column=col, columnspan=colspan, sticky="ew", pady=(0,8), padx=10)
-            return e
+        current_row = 0
 
-        # Foto do aluno - lateral (colunas 2-3)
-        self.frame_foto = tk.Frame(frame, relief="sunken", bd=2, width=250, height=250)
-        self.frame_foto.grid(row=0, column=2, rowspan=6, columnspan=2, pady=15, padx=10, sticky="n")
-        self.frame_foto.grid_propagate(False)
-        self.lbl_foto = tk.Label(self.frame_foto, text="Foto do Aluno", font=("Segoe UI", 10, "bold"))
-        self.lbl_foto.pack(expand=True)
-        self.btn_foto = tk.Button(frame, text="Selecionar Foto", command=self.selecionar_foto, font=("Segoe UI", 9))
-        self.btn_foto.grid(row=6, column=2, columnspan=2, pady=10)
+        # === DADOS PESSOAIS ===
+        tk.Label(frame, text="DADOS PESSOAIS", font=("Segoe UI", 10, "bold")).grid(row=current_row, column=0, columnspan=3, sticky="w", pady=(0,8), padx=5)
+        current_row += 1
 
-        # Dados pessoais - Nome ocupa 2 colunas
-        self.campos["nome"] = campo("Nome Completo *", 0, 0, 2)
+        tk.Label(frame, text="Nome Completo *", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=3, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["nome"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["nome"].grid(row=current_row, column=0, columnspan=3, sticky="ew", padx=5, pady=(0,8))
+        current_row += 1
 
-        # Nascimento, Mãe, Pai - 2 colunas
-        self.campos["nascimento"] = campo("Nascimento *", 2, 0, 1)
-        self.campos["nome_mae"] = campo("Nome da Mãe *", 2, 1, 1)
-        self.campos["nome_pai"] = campo("Nome do Pai", 4, 0, 2)
+        tk.Label(frame, text="Nascimento *", font=("Segoe UI", 8)).grid(row=current_row, column=0, sticky="w", padx=5, pady=(0,2))
+        tk.Label(frame, text="Nome da Mãe *", font=("Segoe UI", 8)).grid(row=current_row, column=1, columnspan=2, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["nascimento"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["nascimento"].grid(row=current_row, column=0, sticky="ew", padx=5, pady=(0,8))
+        self.campos["nome_mae"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["nome_mae"].grid(row=current_row, column=1, columnspan=2, sticky="ew", padx=5, pady=(0,8))
+        current_row += 1
 
-        # Contatos - 3 colunas após a foto
-        self.campos["tel_whatsapp"] = campo("WhatsApp *", 7, 0, 1)
-        self.campos["tel_secundario"] = campo("Telefone Secundário", 7, 1, 1)
-        self.campos["email"] = campo("Email", 7, 2, 2)
+        tk.Label(frame, text="Nome do Pai", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=3, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["nome_pai"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["nome_pai"].grid(row=current_row, column=0, columnspan=3, sticky="ew", padx=5, pady=(0,10))
+        current_row += 1
 
-        # Endereço - 3 colunas
-        self.campos["rua"] = campo("Rua *", 9, 0, 1)
-        self.campos["numero_casa"] = campo("Número *", 9, 1, 1)
-        self.campos["bairro"] = campo("Bairro *", 9, 2, 2)
-        self.campos["complemento"] = campo("Complemento", 11, 0, 1)
-        self.campos["cidade"] = campo("Cidade *", 11, 1, 3)
+        # === CONTATOS ===
+        tk.Label(frame, text="CONTATOS", font=("Segoe UI", 10, "bold")).grid(row=current_row, column=0, columnspan=3, sticky="w", pady=(0,8), padx=5)
+        current_row += 1
 
-        # Escola - 4 colunas
-        self.campos["escola"] = campo("Escola *", 13, 0, 4)
+        tk.Label(frame, text="WhatsApp *", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=2, sticky="w", padx=5, pady=(0,2))
+        tk.Label(frame, text="Tel. Secundário", font=("Segoe UI", 8)).grid(row=current_row, column=2, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["tel_whatsapp"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["tel_whatsapp"].grid(row=current_row, column=0, columnspan=2, sticky="ew", padx=5, pady=(0,8))
+        self.campos["tel_secundario"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["tel_secundario"].grid(row=current_row, column=2, sticky="ew", padx=5, pady=(0,8))
+        current_row += 1
 
-        tk.Label(frame, text="Série *", font=("Segoe UI", 9)).grid(row=15, column=0, sticky="w", pady=(5,2), padx=10)
-        self.campos["serie"] = ttk.Combobox(
-            frame, values=SERIES, state="readonly", font=("Segoe UI", 9)
-        )
-        self.campos["serie"].grid(row=16, column=0, sticky="ew", pady=(0,8), padx=10)
+        tk.Label(frame, text="Email", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=3, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["email"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["email"].grid(row=current_row, column=0, columnspan=3, sticky="ew", padx=5, pady=(0,10))
+        current_row += 1
 
-        tk.Label(frame, text="Turno *", font=("Segoe UI", 9)).grid(row=15, column=1, sticky="w", pady=(5,2), padx=10)
-        self.campos["turno"] = ttk.Combobox(
-            frame, values=TURNOS, state="readonly", font=("Segoe UI", 9)
-        )
-        self.campos["turno"].grid(row=16, column=1, sticky="ew", pady=(0,8), padx=10)
+        # === ENDEREÇO ===
+        tk.Label(frame, text="ENDEREÇO", font=("Segoe UI", 10, "bold")).grid(row=current_row, column=0, columnspan=3, sticky="w", pady=(0,8), padx=5)
+        current_row += 1
 
-        # Laudo Médico - 4 colunas
+        tk.Label(frame, text="Rua *", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=2, sticky="w", padx=5, pady=(0,2))
+        tk.Label(frame, text="Número *", font=("Segoe UI", 8)).grid(row=current_row, column=2, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["rua"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["rua"].grid(row=current_row, column=0, columnspan=2, sticky="ew", padx=5, pady=(0,8))
+        self.campos["numero_casa"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["numero_casa"].grid(row=current_row, column=2, sticky="ew", padx=5, pady=(0,8))
+        current_row += 1
+
+        tk.Label(frame, text="Bairro *", font=("Segoe UI", 8)).grid(row=current_row, column=0, sticky="w", padx=5, pady=(0,2))
+        tk.Label(frame, text="Complemento", font=("Segoe UI", 8)).grid(row=current_row, column=1, columnspan=2, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["bairro"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["bairro"].grid(row=current_row, column=0, sticky="ew", padx=5, pady=(0,8))
+        self.campos["complemento"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["complemento"].grid(row=current_row, column=1, columnspan=2, sticky="ew", padx=5, pady=(0,8))
+        current_row += 1
+
+        tk.Label(frame, text="Cidade *", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=3, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["cidade"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["cidade"].grid(row=current_row, column=0, columnspan=3, sticky="ew", padx=5, pady=(0,10))
+        current_row += 1
+
+        # === ESCOLA ===
+        tk.Label(frame, text="ESCOLA", font=("Segoe UI", 10, "bold")).grid(row=current_row, column=0, columnspan=3, sticky="w", pady=(0,8), padx=5)
+        current_row += 1
+
+        tk.Label(frame, text="Escola *", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=3, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["escola"] = tk.Entry(frame, font=("Segoe UI", 9))
+        self.campos["escola"].grid(row=current_row, column=0, columnspan=3, sticky="ew", padx=5, pady=(0,8))
+        current_row += 1
+
+        tk.Label(frame, text="Série *", font=("Segoe UI", 8)).grid(row=current_row, column=0, columnspan=2, sticky="w", padx=5, pady=(0,2))
+        tk.Label(frame, text="Turno *", font=("Segoe UI", 8)).grid(row=current_row, column=2, sticky="w", padx=5, pady=(0,2))
+        current_row += 1
+        self.campos["serie"] = ttk.Combobox(frame, values=SERIES, state="readonly", font=("Segoe UI", 9))
+        self.campos["serie"].grid(row=current_row, column=0, columnspan=2, sticky="ew", padx=5, pady=(0,8))
+        self.campos["turno"] = ttk.Combobox(frame, values=TURNOS, state="readonly", font=("Segoe UI", 9))
+        self.campos["turno"].grid(row=current_row, column=2, sticky="ew", padx=5, pady=(0,8))
+        current_row += 1
+
+        # === LAUDO MÉDICO ===
+        tk.Label(frame, text="LAUDO MÉDICO", font=("Segoe UI", 10, "bold")).grid(row=current_row, column=0, columnspan=3, sticky="w", pady=(0,8), padx=5)
+        current_row += 1
+
         self.var_laudo = tk.BooleanVar()
         self.chk_laudo = tk.Checkbutton(frame, text="Possui Laudo Médico", variable=self.var_laudo, command=self.toggle_laudo, font=("Segoe UI", 9))
-        self.chk_laudo.grid(row=17, column=0, columnspan=4, sticky="w", pady=10, padx=10)
+        self.chk_laudo.grid(row=current_row, column=0, columnspan=3, sticky="w", pady=(0,5), padx=5)
+        current_row += 1
+
         self.btn_laudo = tk.Button(frame, text="Selecionar Laudo Médico", command=self.selecionar_laudo, state="disabled", font=("Segoe UI", 9))
-        self.btn_laudo.grid(row=18, column=0, columnspan=4, pady=10, padx=10)
+        self.btn_laudo.grid(row=current_row, column=0, columnspan=3, sticky="ew", pady=(0,15), padx=5)
+        current_row += 1
 
-
+        # Frame de botões - à direita, abaixo da foto
         frame_botoes = tk.Frame(self)
-        frame_botoes.pack(pady=15)
+        frame_botoes.place(x=860, y=310, width=220)
 
         tk.Button(
             frame_botoes,
             text="Salvar",
-            width=12,
+            width=24,
             bg="#4CAF50",
             fg="white",
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 8),
             command=self.salvar
-        ).pack(side=tk.LEFT, padx=4)
+        ).pack(pady=2, fill=tk.X)
 
-
-        tk.Button(
+        self.btn_upload_contrato = tk.Button(
             frame_botoes,
             text="Enviar Contrato",
-            width=16,
-            font=("Segoe UI", 11),
+            width=24,
+            font=("Segoe UI", 8),
             command=self.upload_contrato
-        ).pack(side=tk.LEFT, padx=4)
+        )
+        self.btn_upload_contrato.pack(pady=2, fill=tk.X)
 
-        tk.Button(
+        self.btn_upload_documento = tk.Button(
             frame_botoes,
             text="Enviar Documento",
-            width=18,
-            font=("Segoe UI", 11),
+            width=24,
+            font=("Segoe UI", 8),
             command=self.upload_documento
-        ).pack(side=tk.LEFT, padx=4)
+        )
+        self.btn_upload_documento.pack(pady=2, fill=tk.X)
 
-        tk.Button(
+        self.btn_abrir_pasta = tk.Button(
             frame_botoes,
             text="Abrir Pasta",
-            width=14,
-            font=("Segoe UI", 11),
+            width=24,
+            font=("Segoe UI", 8),
             command=self.abrir_pasta_aluno
-        ).pack(side=tk.LEFT, padx=4)
+        )
+        self.btn_abrir_pasta.pack(pady=2, fill=tk.X)
 
         tk.Button(
             frame_botoes,
             text="Cancelar",
-            width=12,
+            width=24,
             bg="#9E0202",
             fg="white",
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 8),
             command=self.destroy
-        ).pack(side=tk.LEFT, padx=4)
+        ).pack(pady=2, fill=tk.X)
 
         # Footer
         self.frame_footer = tk.Frame(self)
@@ -211,6 +281,23 @@ class AlunoForm(tk.Toplevel):
         self.lbl_datetime.pack(side=tk.RIGHT)
 
         self.atualizar_datetime()
+
+        # Atualizar estado dos botões baseado no estado do aluno
+        self.atualizar_estado_botoes()
+
+        # Vincular eventos de formatação aos campos
+        self.campos["nascimento"].bind("<KeyRelease>", self.formatar_nascimento)
+        self.campos["tel_whatsapp"].bind("<KeyRelease>", self.formatar_telefone_whatsapp)
+        self.campos["tel_secundario"].bind("<KeyRelease>", self.formatar_telefone_secundario)
+        
+    def atualizar_estado_botoes(self):
+        """Atualiza o estado dos botões de upload baseado no estado do aluno."""
+        if self.btn_upload_contrato and self.btn_upload_documento and self.btn_abrir_pasta:
+            # Se o aluno ainda não foi salvo (não tem ID), desabilitar botões de upload
+            estado = "normal" if self.id_aluno else "disabled"
+            self.btn_upload_contrato.config(state=estado)
+            self.btn_upload_documento.config(state=estado)
+            self.btn_abrir_pasta.config(state=estado)
         
     # ------------------------
     # FORMATAÇÃO EM TEMPO REAL
@@ -220,9 +307,14 @@ class AlunoForm(tk.Toplevel):
         entry = self.campos["nascimento"]
         text = entry.get()
         digits = re.sub(r'\D', '', text)[:8]  # Máximo 8 dígitos
-        if len(digits) >= 5:
+        if len(digits) == 8:
+            # Formato completo: DD/MM/YYYY
+            formatted = f"{digits[:2]}/{digits[2:4]}/{digits[4:]}"
+        elif len(digits) >= 5:
+            # Pelo menos dia, mês e parte do ano
             formatted = f"{digits[:2]}/{digits[2:4]}/{digits[4:]}"
         elif len(digits) >= 3:
+            # Pelo menos dia e mês
             formatted = f"{digits[:2]}/{digits[2:]}"
         else:
             formatted = digits
@@ -240,12 +332,20 @@ class AlunoForm(tk.Toplevel):
     def _formatar_telefone(self, entry, bind_method):
         text = entry.get()
         digits = re.sub(r'\D', '', text)[:11]  # Máximo 11 dígitos
-        if len(digits) >= 7:
+        if len(digits) == 11:
+            # Formato completo: (XX) XXXXX-XXXX
+            formatted = f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
+        elif len(digits) >= 7:
+            # Pelo menos DDD + 5 dígitos + parte do final
             formatted = f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
         elif len(digits) >= 3:
+            # Pelo menos DDD + alguns dígitos
             formatted = f"({digits[:2]}) {digits[2:]}"
+        elif len(digits) >= 1:
+            # Pelo menos um dígito
+            formatted = f"({digits}"
         else:
-            formatted = f"({digits})" if digits else ""
+            formatted = ""
         entry.unbind("<KeyRelease>")
         entry.delete(0, tk.END)
         entry.insert(0, formatted)
@@ -271,11 +371,11 @@ class AlunoForm(tk.Toplevel):
 
         valores = {
             "nome": nome,
-            "nascimento": nascimento,
+            "nascimento": formatar_data(nascimento) if nascimento else "",
             "nome_mae": nome_mae,
             "nome_pai": nome_pai,
-            "tel_whatsapp": tel_whatsapp,
-            "tel_secundario": tel_secundario,
+            "tel_whatsapp": formatar_telefone(tel_whatsapp) if tel_whatsapp else "",
+            "tel_secundario": formatar_telefone(tel_secundario) if tel_secundario else "",
             "email": email,
             "rua": rua,
             "bairro": bairro,
@@ -293,7 +393,7 @@ class AlunoForm(tk.Toplevel):
         self.campos["turno"].set(turno)
 
         # Carregar laudo médico
-        if laudo_medico:
+        if laudo_medico and laudo_medico == 1:
             self.var_laudo.set(True)
             self.btn_laudo.config(state="normal")
         else:
@@ -302,6 +402,34 @@ class AlunoForm(tk.Toplevel):
 
         # Mostrar foto se existir
         self.mostrar_foto()
+
+    def mostrar_foto(self):
+        """Mostra a foto salva do aluno se existir, preenchendo o espaço."""
+        if self.pasta_aluno:
+            import glob
+            # Procurar na pasta "foto" do aluno
+            pasta_foto = os.path.join(self.pasta_aluno, "foto")
+            if os.path.exists(pasta_foto):
+                padrao_foto = os.path.join(pasta_foto, "foto_*")
+                arquivos_foto = glob.glob(padrao_foto)
+
+                if arquivos_foto:
+                    caminho_foto = arquivos_foto[0]  # Pega o primeiro arquivo encontrado
+                    try:
+                        from PIL import Image, ImageTk
+                        img = Image.open(caminho_foto)
+                        # Redimensionar para preencher o frame (220x240)
+                        img = img.resize((218, 238), Image.Resampling.LANCZOS)
+                        self.foto_img = ImageTk.PhotoImage(img)
+                        self.lbl_foto.config(image=self.foto_img, text="", bg="")
+                    except Exception as e:
+                        self.lbl_foto.config(text="Erro ao carregar foto", bg="#e0e0e0")
+                else:
+                    self.lbl_foto.config(text="Foto do Aluno", bg="#e0e0e0", image="")
+            else:
+                self.lbl_foto.config(text="Foto do Aluno", bg="#e0e0e0", image="")
+        else:
+            self.lbl_foto.config(text="Foto do Aluno", bg="#e0e0e0", image="")
 
     # ------------------------
     # SALVAR
@@ -364,20 +492,52 @@ class AlunoForm(tk.Toplevel):
             aluno_id = self.id_aluno
         else:
             aluno_id = criar_aluno(dados)
+            self.id_aluno = aluno_id  # Atualizar o ID do aluno recém-criado
+            self.atualizar_estado_botoes()  # Habilitar botões de upload após salvar
 
         # Copiar foto se foi selecionada
         if self.caminho_foto_temp:
             from core.alunos_crud import buscar_nome_e_pasta
-            _, pasta = buscar_nome_e_pasta(aluno_id)
-            if pasta:
-                destino = os.path.join(pasta, "foto")
+            nome_aluno, pasta = buscar_nome_e_pasta(aluno_id)
+            if pasta and nome_aluno:
+                # Criar pasta "foto" se não existir
+                pasta_foto = os.path.join(pasta, "foto")
+                os.makedirs(pasta_foto, exist_ok=True)
+
+                nome_arquivo = self._gerar_nome_arquivo("foto", nome_aluno, self.campos["serie"].get())
+                destino = os.path.join(pasta_foto, nome_arquivo)
                 copiar_arquivo(self.caminho_foto_temp, destino)
+
+        # Atualizar título se era um novo aluno
+        if not self.id_aluno:
+            self.title("Editar Aluno")
+
+        # Mostrar mensagem de sucesso
+        messagebox.showinfo("Sucesso", "Dados salvos com sucesso!")
+
+        # Sempre fechar o formulário após salvar
+        self.destroy()
 
         if self.callback:
             self.callback()
 
-        self.destroy()
+    def _gerar_nome_arquivo(self, tipo_arquivo, nome_aluno, serie, incluir_data=False):
+        """Gera nome do arquivo no formato: tipo_nome_do_aluno_serie[_data]"""
+        from datetime import datetime
+        import re
 
+        # Normalizar nome do aluno (remover acentos, espaços, etc.)
+        nome_normalizado = re.sub(r'[^\w\s-]', '', nome_aluno)
+        nome_normalizado = re.sub(r'\s+', '_', nome_normalizado.strip())
+
+        # Normalizar série
+        serie_normalizada = serie.replace('º', '').replace(' ', '_').lower()
+
+        if incluir_data:
+            data_atual = datetime.now().strftime("%Y%m%d_%H%M%S")
+            return f"{tipo_arquivo}_{nome_normalizado}_{serie_normalizada}_{data_atual}"
+        else:
+            return f"{tipo_arquivo}_{nome_normalizado}_{serie_normalizada}"
     def confirmar_fechar(self):
         """Confirma fechamento se houver dados não salvos."""
         campos_preenchidos = any(self.campos[campo].get() for campo in self.campos if campo != "pasta")
@@ -402,9 +562,17 @@ class AlunoForm(tk.Toplevel):
         )
 
         if arquivo:
-            destino = os.path.join(self.pasta_aluno, "contrato")
-            copiar_arquivo(arquivo, destino)
-            messagebox.showinfo("Sucesso", "Contrato enviado com sucesso.")
+            from core.alunos_crud import buscar_nome_e_pasta
+            nome_aluno, _ = buscar_nome_e_pasta(self.id_aluno)
+            if nome_aluno:
+                # Criar pasta "contrato" se não existir
+                pasta_contrato = os.path.join(self.pasta_aluno, "contrato")
+                os.makedirs(pasta_contrato, exist_ok=True)
+
+                nome_arquivo = self._gerar_nome_arquivo("contrato", nome_aluno, self.campos["serie"].get(), incluir_data=True)
+                destino = os.path.join(pasta_contrato, nome_arquivo)
+                copiar_arquivo(arquivo, destino)
+                messagebox.showinfo("Sucesso", "Contrato enviado com sucesso.")
 
     def upload_documento(self):
         if not self.id_aluno or not self.pasta_aluno:
@@ -412,14 +580,22 @@ class AlunoForm(tk.Toplevel):
             return
 
         arquivo = filedialog.askopenfilename(
-            title="Selecionar documento",
+            title="Selecionar relatório",
             filetypes=[("Todos os arquivos", "*.*")]
         )
 
         if arquivo:
-            destino = os.path.join(self.pasta_aluno, "documentos")
-            copiar_arquivo(arquivo, destino)
-            messagebox.showinfo("Sucesso", "Documento enviado com sucesso.")
+            from core.alunos_crud import buscar_nome_e_pasta
+            nome_aluno, _ = buscar_nome_e_pasta(self.id_aluno)
+            if nome_aluno:
+                # Criar pasta "relatorio" se não existir
+                pasta_relatorio = os.path.join(self.pasta_aluno, "relatorio")
+                os.makedirs(pasta_relatorio, exist_ok=True)
+
+                nome_arquivo = self._gerar_nome_arquivo("relatorio", nome_aluno, self.campos["serie"].get(), incluir_data=True)
+                destino = os.path.join(pasta_relatorio, nome_arquivo)
+                copiar_arquivo(arquivo, destino)
+                messagebox.showinfo("Sucesso", "Relatório enviado com sucesso.")
 
     def abrir_pasta_aluno(self):
         if self.pasta_aluno:
@@ -442,13 +618,14 @@ class AlunoForm(tk.Toplevel):
             try:
                 from PIL import Image, ImageTk
                 img = Image.open(self.caminho_foto_temp)
-                img = img.resize((150, 150), Image.Resampling.LANCZOS)
+                # Redimensionar para preencher o frame (220x240)
+                img = img.resize((218, 238), Image.Resampling.LANCZOS)
                 self.foto_img = ImageTk.PhotoImage(img)
-                self.lbl_foto.config(image=self.foto_img, text="")
+                self.lbl_foto.config(image=self.foto_img, text="", bg="")
             except Exception as e:
-                self.lbl_foto.config(text="Erro ao carregar foto")
+                self.lbl_foto.config(text="Erro ao carregar foto", bg="#e0e0e0")
         else:
-            self.lbl_foto.config(text="Foto do Aluno", image="")
+            self.lbl_foto.config(text="Foto do Aluno", bg="#e0e0e0", image="")
 
     def toggle_laudo(self):
         if self.var_laudo.get():
@@ -467,9 +644,17 @@ class AlunoForm(tk.Toplevel):
         )
 
         if arquivo:
-            destino = os.path.join(self.pasta_aluno, "laudo_medico")
-            copiar_arquivo(arquivo, destino)
-            messagebox.showinfo("Sucesso", "Laudo médico selecionado com sucesso.")
+            from core.alunos_crud import buscar_nome_e_pasta
+            nome_aluno, _ = buscar_nome_e_pasta(self.id_aluno)
+            if nome_aluno:
+                # Criar pasta "laudo" se não existir
+                pasta_laudo = os.path.join(self.pasta_aluno, "laudo")
+                os.makedirs(pasta_laudo, exist_ok=True)
+
+                nome_arquivo = self._gerar_nome_arquivo("laudo", nome_aluno, self.campos["serie"].get(), incluir_data=True)
+                destino = os.path.join(pasta_laudo, nome_arquivo)
+                copiar_arquivo(arquivo, destino)
+                messagebox.showinfo("Sucesso", "Laudo médico selecionado com sucesso.")
 
     def atualizar_datetime(self):
         if self.winfo_exists() and self.lbl_datetime.winfo_exists():
@@ -477,4 +662,3 @@ class AlunoForm(tk.Toplevel):
             self.lbl_datetime.config(text=now.strftime("%d/%m/%Y %H:%M:%S"))
             self.after(1000, self.atualizar_datetime)
 
-            
