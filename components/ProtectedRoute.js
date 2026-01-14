@@ -10,9 +10,9 @@ export default function ProtectedRoute({ children }) {
 
     useEffect(() => {
         async function checkAuth() {
-            const { data } = await supabase.auth.getUser()
+            const { data, error } = await supabase.auth.getUser()
 
-            if (!data.user) {
+            if (error || !data.user) {
                 router.push("/login")
             } else {
                 setLoading(false)
@@ -20,7 +20,7 @@ export default function ProtectedRoute({ children }) {
         }
 
         checkAuth()
-    }, [router])
+    }, [])
 
     if (loading) {
         return (

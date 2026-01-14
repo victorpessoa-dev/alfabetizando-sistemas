@@ -11,19 +11,21 @@ export default function StudentView() {
     const [student, setStudent] = useState(null)
 
     useEffect(() => {
+        async function load() {
+            const { data, error } = await supabase
+                .from("students")
+                .select("*")
+                .eq("id", id)
+                .single()
+
+            if (error) {
+                router.push("/dashboard/students")
+                return
+            }
+            setStudent(data)
+        }
         load()
-    }, [])
-
-    async function load() {
-        const { data, error } = await supabase
-            .from("students")
-            .select("*")
-            .eq("id", id)
-            .single()
-
-        if (error) router.push("/dashboard/students")
-        setStudent(data)
-    }
+    }, [id, router])
 
     if (!student) return null
 

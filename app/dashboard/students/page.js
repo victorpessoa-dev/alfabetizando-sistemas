@@ -12,15 +12,21 @@ export default function StudentsPage() {
     }, [])
 
     async function loadStudents() {
-        const { data: user } = await supabase.auth.getUser()
+        const { data: userData, error: userError } = await supabase.auth.getUser()
 
-        const { data } = await supabase
+        if (userError || !userData.user) {
+            return
+        }
+
+        const { data, error } = await supabase
             .from("students")
             .select("*")
-            .eq("user_id", user.user.id)
+            .eq("user_id", userData.user.id)
             .order("nome_completo")
 
-        setStudents(data || [])
+        if (!error) {
+            setStudents(data || [])
+        }
     }
 
     return (

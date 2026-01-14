@@ -9,6 +9,8 @@ export default function EditStudentPage() {
     const router = useRouter()
 
     const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState("")
     const [form, setForm] = useState({
         nome_completo: "",
         nome_responsavel: "",
@@ -19,32 +21,39 @@ export default function EditStudentPage() {
     })
 
     useEffect(() => {
-        loadStudent()
-    }, [])
+        async function loadStudent() {
+            const { data, error } = await supabase
+                .from("students")
+                .select("*")
+                .eq("id", id)
+                .single()
 
-    async function loadStudent() {
-        const { data, error } = await supabase
-            .from("students")
-            .select("*")
-            .eq("id", id)
-            .single()
+            if (error) {
+                router.push("/dashboard/students")
+                return
+            }
 
-        if (error) {
-            router.push("/dashboard/students")
-            return
+            setForm(data)
+            setLoading(false)
         }
-
-        setForm(data)
-        setLoading(false)
-    }
+        loadStudent()
+    }, [id, router])
 
     async function handleSubmit(e) {
         e.preventDefault()
+        setSaving(true)
+        setError("")
 
-        await supabase
+        const { error: updateError } = await supabase
             .from("students")
             .update(form)
             .eq("id", id)
+
+        if (updateError) {
+            setError("Erro ao salvar alterações")
+            setSaving(false)
+            return
+        }
 
         router.push(`/dashboard/students/${id}`)
     }
@@ -56,12 +65,19 @@ export default function EditStudentPage() {
             <h1 className="text-2xl font-bold mb-6">Editar Aluno</h1>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                    <div className="bg-red-100 text-red-700 p-2 rounded text-sm">
+                        {error}
+                    </div>
+                )}
+
                 <input
                     className="w-full border p-2 rounded"
                     placeholder="Nome do aluno"
                     value={form.nome_completo}
                     onChange={(e) => setForm({ ...form, nome_completo: e.target.value })}
                     required
+                    disabled={saving}
                 />
 
                 <input
@@ -70,6 +86,7 @@ export default function EditStudentPage() {
                     value={form.nome_responsavel}
                     onChange={(e) => setForm({ ...form, nome_responsavel: e.target.value })}
                     required
+                    disabled={saving}
                 />
 
                 <input
@@ -77,6 +94,7 @@ export default function EditStudentPage() {
                     placeholder="WhatsApp"
                     value={form.tel_whatsapp}
                     onChange={(e) => setForm({ ...form, tel_whatsapp: e.target.value })}
+                    disabled={saving}
                 />
 
                 <input
@@ -84,6 +102,7 @@ export default function EditStudentPage() {
                     placeholder="Escola regular"
                     value={form.escola || ""}
                     onChange={(e) => setForm({ ...form, escola: e.target.value })}
+                    disabled={saving}
                 />
 
                 <input
@@ -91,6 +110,7 @@ export default function EditStudentPage() {
                     placeholder="Turma"
                     value={form.turma || ""}
                     onChange={(e) => setForm({ ...form, turma: e.target.value })}
+                    disabled={saving}
                 />
 
                 <textarea
@@ -98,10 +118,15 @@ export default function EditStudentPage() {
                     placeholder="Observações"
                     value={form.observacoes || ""}
                     onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+                    disabled={saving}
                 />
 
-                <button className="bg-blue-600 text-white px-4 py-2 rounded">
-                    Salvar
+                <button
+                    type="submit"
+                    disabled={saving}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                    {saving ? "Salvando..." : "Salvar"}
                 </button>
             </form>
         </div>

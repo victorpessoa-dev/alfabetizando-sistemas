@@ -1,18 +1,27 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getAttendanceByStudent } from '@/services/attendanceService'
+import { getAttendanceByStudent } from '@/service/AttendaceService'
 
-export default function AttendanceTable({ studentId }) {
+export default function AttendaceTable({ studentId, reloadTrigger }) {
     const [records, setRecords] = useState([])
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         async function load() {
-            const { data } = await getAttendanceByStudent(studentId)
-            setRecords(data || [])
+            setLoading(true)
+            const { data, error } = await getAttendanceByStudent(studentId)
+            if (!error) {
+                setRecords(data || [])
+            }
+            setLoading(false)
         }
         load()
-    }, [])
+    }, [studentId, reloadTrigger])
+
+    if (loading) {
+        return <p className="mt-4 text-gray-500">Carregando...</p>
+    }
 
     return (
         <table className="w-full border mt-4">
@@ -24,15 +33,23 @@ export default function AttendanceTable({ studentId }) {
                 </tr>
             </thead>
             <tbody>
-                {records.map(r => (
-                    <tr key={r.id}>
-                        <td className="border p-2">{r.data}</td>
-                        <td className="border p-2">
-                            {r.status === 'presente' ? '✅ Presente' : '❌ Falta'}
+                {records.length === 0 ? (
+                    <tr>
+                        <td colSpan={3} className="border p-2 text-center text-gray-500">
+                            Nenhuma presença registrada
                         </td>
-                        <td className="border p-2">{r.observacao}</td>
                     </tr>
-                ))}
+                ) : (
+                    records.map(r => (
+                        <tr key={r.id}>
+                            <td className="border p-2">{r.data}</td>
+                            <td className="border p-2">
+                                {r.presente ? '✅ Presente' : '❌ Falta'}
+                            </td>
+                            <td className="border p-2">{r.observacao || '-'}</td>
+                        </tr>
+                    ))
+                )}
             </tbody>
         </table>
     )
