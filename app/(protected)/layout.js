@@ -2,115 +2,113 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  CreditCard,
-  FileText,
-  LogOut,
-} from "lucide-react"
+import { useEffect, useState } from "react"
+import { Home, Users, CalendarCheck, FileText, CreditCard, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useEffect } from "react"
-
-const HEADER_HEIGHT = "4rem" // 64px
-const FOOTER_HEIGHT = "3rem" // 48px
-const SIDEBAR_WIDTH = "16rem" // 256px
 
 export default function ProtectedLayout({ children }) {
-  const supabase = createClient()
-  const router = useRouter()
+
+  const [school, setSchool] = useState(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/auth/login")
-      }
-    })
+    loadSchool()
   }, [])
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push("/auth/login")
+  async function loadSchool() {
+    const supabase = createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    const { data } = await supabase
+      .from("school_settings")
+      .select("school_name, school_logo_url")
+      .eq("user_id", user.id)
+      .single()
+
+    setSchool(data)
   }
 
+
   return (
-    <div className="h-screen w-screen overflow-hidden bg-muted/30">
-      {/* SIDEBAR FIXO */}
-      <aside
-        className="fixed top-0 left-0 h-screen border-r bg-background hidden md:flex flex-col z-50"
-        style={{ width: SIDEBAR_WIDTH }}
-      >
-        <div className="h-20 flex items-center justify-center border-b">
-          <Image src="/sheila.png" alt="Logo" width={90} height={90} />
+    <div className="flex min-h-screen">
+
+      {/* SIDEBAR */}
+      <aside className="w-64 bg-slate-900 text-white flex flex-col fixed h-screen">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-800">
+          {school?.school_logo_url && (
+            <Image
+              src={school.school_logo_url}
+              alt="Logo"
+              width={40}
+              height={40}
+              className="rounded"
+            />
+          )}
+
+          <div className="leading-tight">
+            <p className="text-sm font-semibold">
+              {school?.school_name || "Minha Escola"}
+            </p>
+            <span className="text-xs text-muted-foreground">
+              Painel Administrativo
+            </span>
+          </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          <NavLink href="/" icon={<LayoutDashboard size={18} />} label="Dashboard" />
-          <NavLink href="/alunos" icon={<Users size={18} />} label="Alunos" />
-          <NavLink href="/presenca" icon={<Calendar size={18} />} label="Frequência" />
-          <NavLink href="/pagamentos" icon={<CreditCard size={18} />} label="Pagamentos" />
-          <NavLink href="/documentos" icon={<FileText size={18} />} label="Documentos" />
+
+        <nav className="flex-1 space-y-2 px-4">
+          <Link href="/">
+            <Button variant="ghost" className="w-full justify-start text-white">
+              <Home className="mr-2 h-4 w-4" /> Dashboard
+            </Button>
+          </Link>
+
+          <Link href="/alunos">
+            <Button variant="ghost" className="w-full justify-start text-white">
+              <Users className="mr-2 h-4 w-4" /> Alunos
+            </Button>
+          </Link>
+
+          <Link href="/frequencia">
+            <Button variant="ghost" className="w-full justify-start text-white">
+              <CalendarCheck className="mr-2 h-4 w-4" /> Frequência
+            </Button>
+          </Link>
+
+          <Link href="/pagamentos">
+            <Button variant="ghost" className="w-full justify-start text-white">
+              <CreditCard className="mr-2 h-4 w-4" /> Pagamentos
+            </Button>
+          </Link>
+
+          <Link href="/documentos">
+            <Button variant="ghost" className="w-full justify-start text-white">
+              <FileText className="mr-2 h-4 w-4" /> Documentos
+            </Button>
+          </Link>
+
+          <Link href="/configuracoes">
+            <Button variant="ghost" className="w-full justify-start text-white">
+              <Settings className="mr-2 h-4 w-4" />
+              Configurações
+            </Button>
+          </Link>
         </nav>
 
-        <div className="p-4 border-t">
-          <Button onClick={handleLogout} variant="outline" className="w-full gap-2">
-            <LogOut size={16} />
-            Sair
-          </Button>
-        </div>
+        {/* FOOTER */}
+        <footer className="p-4 text-sm text-center text-slate-400 border-t border-slate-700">
+          © {new Date().getFullYear()} Alfabetizando Sistemas
+        </footer>
       </aside>
 
-      {/* HEADER FIXO */}
-      <header
-        className="fixed top-0 right-0 border-b bg-background flex items-center px-6 z-40"
-        style={{
-          left: SIDEBAR_WIDTH,
-          height: HEADER_HEIGHT,
-        }}
-      >
-        <h1 className="font-semibold">Alfabetizando Sistemas</h1>
-      </header>
-
-      {/* FOOTER FIXO */}
-      <footer
-        className="fixed bottom-0 right-0 border-t bg-background flex items-center justify-center z-40"
-        style={{
-          left: SIDEBAR_WIDTH,
-          height: FOOTER_HEIGHT,
-        }}
-      >
-        <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Alfabetizando Sistemas. Todos os direitos reservados.
-        </p>
-      </footer>
-
-      {/* CONTEÚDO (SCROLL AQUI) */}
-      <main
-        className="absolute overflow-y-auto p-6"
-        style={{
-          top: HEADER_HEIGHT,
-          bottom: FOOTER_HEIGHT,
-          left: SIDEBAR_WIDTH,
-          right: 0,
-        }}
-      >
+      {/* CONTEÚDO */}
+      <main className="ml-64 flex-1 p-6 bg-slate-50">
         {children}
       </main>
-    </div>
-  )
-}
 
-function NavLink({ href, icon, label }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium hover:bg-accent transition"
-    >
-      {icon}
-      {label}
-    </Link>
+    </div>
   )
 }

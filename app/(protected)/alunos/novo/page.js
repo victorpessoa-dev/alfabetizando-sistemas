@@ -1,272 +1,161 @@
 "use client"
 
-import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Upload, X } from "lucide-react"
-import Link from "next/link"
+import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 
 export default function NovoAlunoPage() {
+  const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
 
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
+  const [photo, setPhoto] = useState(null)
+
+  const [form, setForm] = useState({
+    name_completo: "",
     birth_date: "",
     guardian_name: "",
     whatsapp: "",
     grade: "",
-    class: "",
-    active: true,
-    observations: "",
+    escola: "",
+    endereco: "",
   })
 
-  const [photoFile, setPhotoFile] = useState(null)
-  const [photoPreview, setPhotoPreview] = useState(null)
-
-  function handleInputChange(e) {
-    const { name, value, type, checked } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }))
-  }
-
-  function handlePhotoChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setPhotoFile(file)
-
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setPhotoPreview(reader.result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  function removePhoto() {
-    setPhotoFile(null)
-    setPhotoPreview(null)
-  }
-
-  async function uploadPhoto(file) {
-    const formData = new FormData()
-    formData.append("file", file)
-
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    })
-
-    if (!response.ok) {
-      throw new Error("Erro ao fazer upload da foto")
-    }
-
-    const data = await response.json()
-    return data.url
+  function handleChange(e) {
+    setForm({ ...form, [e.target.name]: e.target.value })
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
 
-    try {
-      let photoUrl = null
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-      if (photoFile) {
-        photoUrl = await uploadPhoto(photoFile)
+    let photo_url = null
+
+    if (photo) {
+      const fileExt = photo.name.split(".").pop()
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("students-photos")
+        .upload(filePath, photo)
+
+      if (uploadError) {
+        toast({ title: "Erro ao enviar foto", variant: "destructive" })
+        setLoading(false)
+        return
       }
 
-      const { data, error } = await supabase
-        .from("students")
-        .insert([{ ...formData, photo_url: photoUrl }])
-        .select()
-        .single()
+      const { data } = supabase.storage
+        .from("students-photos")
+        .getPublicUrl(filePath)
 
-      if (error) throw error
+      photo_url = data.publicUrl
+    }
 
+    const { error } = await supabase.from("students").insert({
+      ...form,
+      photo_url,
+      active: true,
+      user_id: user.id,
+    })
+
+    if (error) {
       toast({
-        title: "Aluno cadastrado",
-        description: "O aluno foi cadastrado com sucesso.",
-      })
-
-      router.push(`/alunos/${data.id}`)
-    } catch (error) {
-      toast({
-        title: "Erro ao cadastrar aluno",
+        title: "Erro ao salvar aluno",
         description: error.message,
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
+    } else {
+      toast({ title: "Aluno cadastrado com sucesso" })
+      router.push("/alunos")
     }
+
+    setLoading(false)
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <Link href="/alunos">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
+    <Card>
+      <CardContent className="p-6 space-y-6">
+        <h1 className="text-2xl font-bold">Novo Aluno</h1>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            name="name_completo"
+            placeholder="Nome completo"
+            required
+            onChange={handleChange}
+          />
+
+          <Input
+            type="date"
+            name="birth_date"
+            required
+            onChange={handleChange}
+          />
+
+          <Input
+            name="guardian_name"
+            placeholder="Nome do responsável"
+            onChange={handleChange}
+          />
+
+          <Input
+            name="whatsapp"
+            placeholder="WhatsApp"
+            onChange={handleChange}
+          />
+
+          <select
+            name="grade"
+            required
+            onChange={handleChange}
+            className="w-full border rounded-md p-2"
+          >
+            <option value="">Selecione a série</option>
+            <option>Educação Infantil</option>
+            <option>1º Ano</option>
+            <option>2º Ano</option>
+            <option>3º Ano</option>
+            <option>4º Ano</option>
+            <option>5º Ano</option>
+            <option>6º Ano</option>
+            <option>7º Ano</option>
+            <option>8º Ano</option>
+            <option>9º Ano</option>
+          </select>
+
+          <Input
+            name="school_name"
+            placeholder="Escola"
+            onChange={handleChange}
+          />
+
+          <Input
+            name="address"
+            placeholder="Endereço"
+            onChange={handleChange}
+          />
+
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhoto(e.target.files[0])}
+          />
+
+          <Button disabled={loading}>
+            {loading ? "Salvando..." : "Salvar Aluno"}
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Novo Aluno</h1>
-          <p className="text-muted-foreground">Cadastre um novo aluno no sistema</p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="grid gap-6">
-        {/* Informações Pessoais */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações Pessoais</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Label htmlFor="name">Nome Completo *</Label>
-              <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
-            </div>
-            <div>
-              <Label htmlFor="birth_date">Data de Nascimento</Label>
-              <Input
-                id="birth_date"
-                name="birth_date"
-                type="date"
-                value={formData.birth_date}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div>
-              <Label htmlFor="guardian_name">Responsável</Label>
-              <Input
-                id="guardian_name"
-                name="guardian_name"
-                value={formData.guardian_name}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
-              <Input
-                id="whatsapp"
-                name="whatsapp"
-                placeholder="(XX) 9XXXX-XXXX"
-                value={formData.whatsapp}
-                onChange={handleInputChange}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Informações Acadêmicas */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações Acadêmicas</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="grade">Série *</Label>
-              <Input
-                id="grade"
-                name="grade"
-                placeholder="Ex: 1º ano, Infantil, etc"
-                value={formData.grade}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="class">Turma</Label>
-              <Input
-                id="class"
-                name="class"
-                placeholder="Ex: A, B, C"
-                value={formData.class}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="observations">Observações</Label>
-              <Textarea
-                id="observations"
-                name="observations"
-                value={formData.observations}
-                onChange={handleInputChange}
-                rows={3}
-                placeholder="Informações adicionais..."
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="active"
-                name="active"
-                checked={formData.active}
-                onChange={handleInputChange}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="active" className="font-normal cursor-pointer">
-                Aluno ativo
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Foto */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Foto do Aluno</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {photoPreview ? (
-              <div className="relative">
-                <img
-                  src={photoPreview || "/placeholder.svg"}
-                  alt="Preview"
-                  className="w-full max-w-[200px] h-[200px] object-cover rounded-lg"
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={removePhoto}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent">
-                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                <span className="text-sm text-muted-foreground">Clique para enviar foto</span>
-                <input type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
-              </label>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Botões */}
-        <div className="flex justify-end gap-4">
-          <Link href="/alunos">
-            <Button type="button" variant="outline">
-              Cancelar
-            </Button>
-          </Link>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Cadastrando..." : "Cadastrar Aluno"}
-          </Button>
-        </div>
-      </form>
-    </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

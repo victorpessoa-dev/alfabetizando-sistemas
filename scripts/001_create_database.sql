@@ -1,151 +1,134 @@
--- Create auth user for Tia Sheila (single school)
--- Password: admin123 (deve ser alterado em produção)
+create extension if not exists "pgcrypto";
 
--- Create students table
-CREATE TABLE IF NOT EXISTS students (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  birth_date DATE NOT NULL,
-  photo_url TEXT,
-  guardian_name VARCHAR(255),
-  whatsapp VARCHAR(20),
-  grade VARCHAR(50), -- série (infantil, pré, 1º ano, etc)
-  active BOOLEAN DEFAULT true,
-  observations TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+do $$ begin
+  create type grade_enum as enum (
+    'Educação Infantil',
+    '1º Ano',
+    '2º Ano',
+    '3º Ano',
+    '4º Ano',
+    '5º Ano',
+    '6º Ano',
+    '7º Ano',
+    '8º Ano',
+    '9º Ano'
+  );
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type weekday_enum as enum (
+    'Segunda',
+    'Terça',
+    'Quarta',
+    'Quinta',
+    'Sexta'
+  );
+exception
+  when duplicate_object then null;
+end $$;
+
+
+create table if not exists school_settings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid unique references auth.users(id) on delete cascade,
+  school_name varchar(255) default 'Tia Sheila',
+  school_logo_url text,
+  school_phone varchar(20),
+  school_email varchar(255),
+  school_address text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
--- Create attendance table
-CREATE TABLE IF NOT EXISTS attendances (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  attendance_date DATE NOT NULL,
-  present BOOLEAN NOT NULL,
-  observations TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  UNIQUE(student_id, attendance_date)
+create table if not exists students (
+  id uuid primary key default gen_random_uuid(),
+  name_completo varchar(255) not null,
+  birth_date date not null,
+  photo_url text,
+  guardian_name varchar(255),
+  whatsapp varchar(20),
+  school_name text, 
+  address text,
+  grade grade_enum not null,
+  active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  user_id uuid references auth.users(id) on delete cascade
 );
 
--- Create payments table
-CREATE TABLE IF NOT EXISTS payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  month DATE NOT NULL, -- data do mês de referência
-  amount DECIMAL(10, 2) NOT NULL,
-  paid BOOLEAN DEFAULT false,
-  payment_date DATE,
-  observations TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  UNIQUE(student_id, month)
+
+create table if not exists attendances (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid references students(id) on delete cascade,
+  attendance_date date not null,
+  present boolean not null,
+  observations text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  user_id uuid references auth.users(id) on delete cascade,
+  unique (student_id, attendance_date)
 );
 
--- Create documents table
-CREATE TABLE IF NOT EXISTS documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  document_name VARCHAR(255) NOT NULL,
-  document_url TEXT NOT NULL,
-  document_type VARCHAR(100), -- contrato, comprovante, etc
-  upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+create table if not exists payments (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid references students(id) on delete cascade,
+  reference_month date not null,
+  amount numeric(10,2) not null,
+  paid boolean default false,
+  payment_date date,
+  observations text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  user_id uuid references auth.users(id) on delete cascade,
+  unique (student_id, reference_month)
 );
 
--- Create school settings table
-CREATE TABLE IF NOT EXISTS school_settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-  school_name VARCHAR(255) DEFAULT 'Tia Sheila',
-  school_logo_url TEXT,
-  school_phone VARCHAR(20),
-  school_email VARCHAR(255),
-  school_address TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+create table if not exists student_evaluations (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null
+    references students(id)
+    on delete cascade,
+  evaluation_date date not null,
+  weekday weekday_enum not null,
+  evaluation_text text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  user_id uuid references auth.users(id) on delete cascade,
+  unique (student_id, evaluation_date)
 );
 
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_students_user_id ON students(user_id);
-CREATE INDEX IF NOT EXISTS idx_attendances_student_id ON attendances(student_id);
-CREATE INDEX IF NOT EXISTS idx_attendances_date ON attendances(attendance_date);
-CREATE INDEX IF NOT EXISTS idx_payments_student_id ON payments(student_id);
-CREATE INDEX IF NOT EXISTS idx_payments_month ON payments(month);
-CREATE INDEX IF NOT EXISTS idx_documents_student_id ON documents(student_id);
 
--- Enable RLS (Row Level Security)
-ALTER TABLE students ENABLE ROW LEVEL SECURITY;
-ALTER TABLE attendances ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE school_settings ENABLE ROW LEVEL SECURITY;
+create table if not exists documents (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid references students(id) on delete cascade,
+  document_name varchar(255) not null,
+  document_type varchar(100),
+  document_url text not null,
+  storage_path text not null,
+  version integer default 1,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  user_id uuid references auth.users(id) on delete cascade
+);
 
--- Create RLS policies for students
-CREATE POLICY "Users can view their own students"
-  ON students FOR SELECT
-  USING (auth.uid() = user_id);
+create index if not exists idx_students_user_id on students(user_id);
+create index if not exists idx_attendance_student_id on attendances(student_id);
+create index if not exists idx_payment_student_id on payments(student_id);
+create index if not exists idx_document_student_id on documents(student_id);
+create index if not exists idx_eval_student_id
+  on student_evaluations(student_id);
 
-CREATE POLICY "Users can insert students"
-  ON students FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+create index if not exists idx_eval_date
+  on student_evaluations(evaluation_date);
 
-CREATE POLICY "Users can update their own students"
-  ON students FOR UPDATE
-  USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete their own students"
-  ON students FOR DELETE
-  USING (auth.uid() = user_id);
+alter table students enable row level security;
+alter table attendances enable row level security;
+alter table payments enable row level security;
+alter table documents enable row level security;
+alter table school_settings enable row level security;
+alter table student_evaluations enable row level security;
 
--- Create RLS policies for attendances
-CREATE POLICY "Users can view their own attendances"
-  ON attendances FOR SELECT
-  USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert attendances"
-  ON attendances FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own attendances"
-  ON attendances FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Create RLS policies for payments
-CREATE POLICY "Users can view their own payments"
-  ON payments FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert payments"
-  ON payments FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own payments"
-  ON payments FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Create RLS policies for documents
-CREATE POLICY "Users can view their own documents"
-  ON documents FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert documents"
-  ON documents FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- Create RLS policies for school_settings
-CREATE POLICY "Users can view their own settings"
-  ON school_settings FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own settings"
-  ON school_settings FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert settings"
-  ON school_settings FOR INSERT
-  WITH CHECK (auth.uid() = user_id);

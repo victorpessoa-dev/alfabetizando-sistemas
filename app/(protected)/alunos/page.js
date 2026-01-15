@@ -2,103 +2,100 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import Link from "next/link"
-import { Search, Plus, Grid3x3, List, Trash2, Eye, Pencil } from "lucide-react"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  Plus,
+  Search,
+  Grid3x3,
+  List,
+  Trash2,
+  Eye,
+  Pencil
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export default function AlunosPage() {
-  const [students, setStudents] = useState([])
-  const [filteredStudents, setFilteredStudents] = useState([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [viewMode, setViewMode] = useState("grid")
-  const [deleteId, setDeleteId] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
   const { toast } = useToast()
 
-  const supabase = createClient()
+  const [students, setStudents] = useState([])
+  const [filtered, setFiltered] = useState([])
+  const [search, setSearch] = useState("")
+  const [view, setView] = useState("grid")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadStudents()
   }, [])
 
   useEffect(() => {
-    filterStudents()
-  }, [searchTerm, students])
+    const term = search.toLowerCase()
+    setFiltered(
+      students.filter(
+        (s) =>
+          s.name_completo.toLowerCase().includes(term) ||
+          s.grade.toLowerCase().includes(term) ||
+          (s.guardian_name || "").toLowerCase().includes(term)
+      )
+    )
+  }, [search, students])
 
   async function loadStudents() {
     setLoading(true)
-    const { data, error } = await supabase.from("students").select("*").order("created_at", { ascending: false })
+
+    const { data, error } = await supabase
+      .from("students")
+      .select("id, name_completo, grade, guardian_name, photo_url")
+      .order("created_at", { ascending: false })
 
     if (error) {
       toast({
         title: "Erro ao carregar alunos",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       })
     } else {
       setStudents(data || [])
+      setFiltered(data || [])
     }
+
     setLoading(false)
   }
 
-  function filterStudents() {
-    if (!searchTerm) {
-      setFilteredStudents(students)
-      return
-    }
+  async function deleteStudent(id) {
+    const confirm = window.confirm("Tem certeza que deseja excluir este aluno?")
+    if (!confirm) return
 
-    const term = searchTerm.toLowerCase()
-    const filtered = students.filter(
-      (student) =>
-        student.name.toLowerCase().includes(term) ||
-        student.grade?.toLowerCase().includes(term) ||
-        student.class?.toLowerCase().includes(term) ||
-        student.guardian_name?.toLowerCase().includes(term),
-    )
-    setFilteredStudents(filtered)
-  }
-
-  async function handleDelete() {
-    if (!deleteId) return
-
-    const { error } = await supabase.from("students").delete().eq("id", deleteId)
+    const { error } = await supabase
+      .from("students")
+      .delete()
+      .eq("id", id)
 
     if (error) {
       toast({
-        title: "Erro ao excluir aluno",
+        title: "Erro ao excluir",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       })
     } else {
-      toast({
-        title: "Aluno excluído",
-        description: "O aluno foi excluído com sucesso.",
-      })
+      toast({ title: "Aluno excluído com sucesso" })
       loadStudents()
     }
-    setDeleteId(null)
+  }
+
+  if (loading) {
+    return <p className="text-muted-foreground">Carregando alunos...</p>
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Alunos</h1>
-          <p className="text-muted-foreground">Gerencie todos os alunos cadastrados</p>
-        </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Alunos</h1>
         <Link href="/alunos/novo">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
@@ -107,170 +104,134 @@ export default function AlunosPage() {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+      {/* Busca e visualização */}
+      <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, série, turma..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
+            placeholder="Buscar aluno por nome, série ou responsável"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <Button variant={viewMode === "grid" ? "default" : "outline"} size="icon" onClick={() => setViewMode("grid")}>
-            <Grid3x3 className="h-4 w-4" />
-          </Button>
-          <Button variant={viewMode === "list" ? "default" : "outline"} size="icon" onClick={() => setViewMode("list")}>
-            <List className="h-4 w-4" />
-          </Button>
-        </div>
+
+        <Button
+          size="icon"
+          variant={view === "grid" ? "default" : "outline"}
+          onClick={() => setView("grid")}
+        >
+          <Grid3x3 className="h-4 w-4" />
+        </Button>
+
+        <Button
+          size="icon"
+          variant={view === "list" ? "default" : "outline"}
+          onClick={() => setView("list")}
+        >
+          <List className="h-4 w-4" />
+        </Button>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      ) : filteredStudents.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">
-              {searchTerm ? "Nenhum aluno encontrado." : "Nenhum aluno cadastrado ainda."}
-            </p>
-            {!searchTerm && (
-              <Link href="/alunos/novo">
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Cadastrar Primeiro Aluno
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      ) : viewMode === "grid" ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredStudents.map((student) => (
-            <Card key={student.id} className="overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4 mb-4">
-                  {student.photo_url ? (
-                    <img
-                      src={student.photo_url || "/placeholder.svg"}
-                      alt={student.name}
-                      className="h-16 w-16 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-xl font-bold text-primary">{student.name.charAt(0)}</span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold truncate">{student.name}</h3>
-                    <p className="text-sm text-muted-foreground truncate">{student.guardian_name}</p>
+      {/* Grid */}
+      {view === "grid" && (
+        <div className="grid md:grid-cols-3 gap-4">
+          {filtered.map((s) => (
+            <Card key={s.id}>
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Image
+                    src={s.photo_url || "/avatar-placeholder.png"}
+                    alt={s.name_completo}
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
+                  />
+                  <div>
+                    <h3 className="font-semibold">{s.name_completo}</h3>
+                    <p className="text-sm text-muted-foreground">{s.grade}</p>
                   </div>
                 </div>
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Série:</span>
-                    <span className="font-medium">{student.grade || "-"}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Turma:</span>
-                    <span className="font-medium">{student.class || "-"}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Status:</span>
-                    <span className="font-medium">{student.active ? "Ativo" : "Inativo"}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Link href={`/alunos/${student.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full bg-transparent" size="sm">
-                      <Eye className="mr-2 h-4 w-4" />
-                      Ver
+
+                <p className="text-sm">{s.guardian_name}</p>
+
+                <div className="flex gap-2 pt-2">
+                  <Link href={`/alunos/${s.id}`}>
+                    <Button size="sm" variant="outline">
+                      <Eye className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href={`/alunos/${student.id}/editar`} className="flex-1">
-                    <Button variant="outline" className="w-full bg-transparent" size="sm">
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Editar
+
+                  <Link href={`/alunos/${s.id}/editar`}>
+                    <Button size="sm" variant="outline">
+                      <Pencil className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" onClick={() => setDeleteId(student.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
+
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => deleteStudent(s.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
-      ) : (
+      )}
+
+      {/* Lista */}
+      {view === "list" && (
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b bg-muted/50">
-                  <tr>
-                    <th className="text-left p-4 font-medium">Nome</th>
-                    <th className="text-left p-4 font-medium">Responsável</th>
-                    <th className="text-left p-4 font-medium">Série</th>
-                    <th className="text-left p-4 font-medium">Turma</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-right p-4 font-medium">Ações</th>
+            <table className="w-full text-sm">
+              <thead className="border-b">
+                <tr>
+                  <th className="p-3 text-left">Aluno</th>
+                  <th className="p-3 text-left">Série</th>
+                  <th className="p-3 text-left">Responsável</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => (
+                  <tr key={s.id} className="border-b">
+                    <td className="p-3 flex items-center gap-2">
+                      <Image
+                        src={s.photo_url || "/avatar-placeholder.png"}
+                        alt={s.name_completo}
+                        width={32}
+                        height={32}
+                        className="rounded-full object-cover"
+                      />
+                      {s.name_completo}
+                    </td>
+                    <td className="p-3">{s.grade}</td>
+                    <td className="p-3">{s.guardian_name}</td>
+                    <td className="p-3 flex justify-end gap-2">
+                      <Link href={`/alunos/${s.id}`}>
+                        <Eye className="h-4 w-4 cursor-pointer" />
+                      </Link>
+                      <Link href={`/alunos/${s.id}/editar`}>
+                        <Pencil className="h-4 w-4 cursor-pointer" />
+                      </Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredStudents.map((student) => (
-                    <tr key={student.id} className="border-b hover:bg-muted/50">
-                      <td className="p-4">{student.name}</td>
-                      <td className="p-4">{student.guardian_name || "-"}</td>
-                      <td className="p-4">{student.grade || "-"}</td>
-                      <td className="p-4">{student.class || "-"}</td>
-                      <td className="p-4">
-                        <span className={`text-sm font-medium ${student.active ? "text-green-600" : "text-red-600"}`}>
-                          {student.active ? "Ativo" : "Inativo"}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-end gap-2">
-                          <Link href={`/alunos/${student.id}`}>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Link href={`/alunos/${student.id}/editar`}>
-                            <Button variant="ghost" size="sm">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Button variant="ghost" size="sm" onClick={() => setDeleteId(student.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </CardContent>
         </Card>
       )}
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este aluno? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {filtered.length === 0 && (
+        <p className="text-muted-foreground text-center">
+          Nenhum aluno encontrado.
+        </p>
+      )}
     </div>
   )
 }
+
