@@ -5,8 +5,20 @@ import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { Trash2, Upload, ArrowLeft } from "lucide-react"
+import { Trash2, Upload, ArrowLeft, FileText } from "lucide-react"
+
+/* ===============================
+   SANITIZAÇÃO DE NOMES
+=============================== */
+function sanitizeFileName(name) {
+    return name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9-_\.]/g, "_")
+}
 
 export default function DocumentosAlunoPage() {
     const supabase = createClient()
@@ -16,8 +28,12 @@ export default function DocumentosAlunoPage() {
 
     const [user, setUser] = useState(null)
     const [docs, setDocs] = useState([])
-    const [file, setFile] = useState(null)
     const [loading, setLoading] = useState(true)
+
+    // Modal
+    const [open, setOpen] = useState(false)
+    const [file, setFile] = useState(null)
+    const [fileName, setFileName] = useState("")
     const [uploading, setUploading] = useState(false)
 
     /* =======================
@@ -29,16 +45,10 @@ export default function DocumentosAlunoPage() {
 
     async function init() {
         const { data, error } = await supabase.auth.getUser()
-
         if (error || !data?.user) {
-            toast({
-                title: "Erro",
-                description: "Usuário não autenticado",
-                variant: "destructive",
-            })
+            toast({ title: "Erro", description: "Usuário não autenticado", variant: "destructive" })
             return
         }
-
         setUser(data.user)
         await loadDocs(data.user.id)
         setLoading(false)
@@ -57,11 +67,7 @@ export default function DocumentosAlunoPage() {
 
         if (error) {
             console.error(error)
-            toast({
-                title: "Erro",
-                description: "Erro ao carregar documentos",
-                variant: "destructive",
-            })
+            toast({ title: "Erro", description: "Erro ao carregar documentos", variant: "destructive" })
             return
         }
 
@@ -69,98 +75,71 @@ export default function DocumentosAlunoPage() {
     }
 
     /* =======================
-       UPLOAD
+       UPLOAD DOCUMENT
     ======================= */
     async function uploadDocument() {
-        if (!file) {
-            toast({
-                title: "Erro",
-                description: "Selecione um arquivo",
-                variant: "destructive",
-            })
+        if (!file || !fileName) {
+            toast({ title: "Erro", description: "Selecione um arquivo e informe o nome", variant: "destructive" })
             return
         }
 
         setUploading(true)
-
         try {
-            const path = `${user.id}/${studentId}/${Date.now()}-${file.name}`
+            const ext = file.name.split(".").pop()
+            const safeName = sanitizeFileName(fileName) + "." + ext
+            const path = `${sanitizeFileName(studentId)}/documents/${Date.now()}-${safeName}`
 
+            // Upload
             const { error: uploadError } = await supabase.storage
                 .from("student-documents")
                 .upload(path, file)
-
             if (uploadError) throw uploadError
 
-            // gera URL assinada (mais seguro)
+            // URL assinada
             const { data: signed } = await supabase.storage
                 .from("student-documents")
-                .createSignedUrl(path, 60 * 60) // 1h
+                .createSignedUrl(path, 60 * 60)
 
             const { error: insertError } = await supabase.from("documents").insert({
                 student_id: studentId,
-                document_name: file.name,
+                document_name: fileName,
                 document_url: signed.signedUrl,
                 storage_path: path,
                 user_id: user.id,
             })
-
             if (insertError) throw insertError
 
-            toast({
-                title: "Documento enviado",
-                description: "Upload realizado com sucesso",
-            })
-
+            toast({ title: "Upload realizado", description: "Documento enviado com sucesso" })
             setFile(null)
+            setFileName("")
+            setOpen(false)
             loadDocs(user.id)
-        } catch (error) {
-            console.error(error)
-            toast({
-                title: "Erro",
-                description: error.message,
-                variant: "destructive",
-            })
+        } catch (err) {
+            console.error(err)
+            toast({ title: "Erro", description: err.message, variant: "destructive" })
         } finally {
             setUploading(false)
         }
     }
 
     /* =======================
-       DELETE
+       DELETE DOCUMENT
     ======================= */
     async function removeDocument(doc) {
         try {
-            await supabase.storage
-                .from("student-documents")
-                .remove([doc.storage_path])
-
-            await supabase
-                .from("documents")
-                .delete()
-                .eq("id", doc.id)
-                .eq("user_id", user.id)
-
-            toast({
-                title: "Documento excluído",
-            })
-
+            await supabase.storage.from("student-documents").remove([doc.storage_path])
+            await supabase.from("documents").delete().eq("id", doc.id).eq("user_id", user.id)
+            toast({ title: "Documento excluído" })
             loadDocs(user.id)
-        } catch (error) {
-            toast({
-                title: "Erro",
-                description: "Erro ao excluir documento",
-                variant: "destructive",
-            })
+        } catch (err) {
+            toast({ title: "Erro", description: "Erro ao excluir documento", variant: "destructive" })
         }
     }
 
     /* =======================
        UI
     ======================= */
-    if (loading) {
-        return <p className="text-center py-10">Carregando...</p>
-    }
+    if (loading) return <p className="text-center py-10">Carregando...</p>
 
     return (
         <div className="space-y-6">
@@ -173,50 +152,55 @@ export default function DocumentosAlunoPage() {
                 <h1 className="text-2xl font-bold">Documentos do Aluno</h1>
             </div>
 
-            {/* UPLOAD */}
-            <div className="flex items-center gap-2">
-                <Input
-                    type="file"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                />
-                <Button onClick={uploadDocument} disabled={uploading}>
-                    <Upload className="h-4 w-4 mr-1" />
-                    {uploading ? "Enviando..." : "Upload"}
-                </Button>
-            </div>
+            {/* BOTÃO NOVO DOCUMENTO */}
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <Upload className="h-4 w-4 mr-1" />
+                        Adicionar Documento
+                    </Button>
+                </DialogTrigger>
 
-            {file && (
-                <p className="text-sm text-muted-foreground">
-                    Arquivo selecionado: <strong>{file.name}</strong>
-                </p>
-            )}
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Enviar Novo Documento</DialogTitle>
+                    </DialogHeader>
 
-            {/* LISTA */}
+                    <div className="space-y-4 mt-2">
+                        <div className="flex flex-col gap-1">
+                            <Label>Nome do Documento</Label>
+                            <Input value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="Digite um nome para o arquivo" />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <Label>Arquivo</Label>
+                            <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                            {file && <p className="text-sm text-muted-foreground">Selecionado: {file.name}</p>}
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-4">
+                            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+                            <Button onClick={uploadDocument} disabled={uploading}>
+                                {uploading ? "Enviando..." : "Upload"}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* LISTA DE DOCUMENTOS */}
             <ul className="divide-y border rounded-md">
                 {docs.length === 0 && (
-                    <li className="p-4 text-center text-muted-foreground">
-                        Nenhum documento cadastrado
-                    </li>
+                    <li className="p-4 text-center text-muted-foreground">Nenhum documento cadastrado</li>
                 )}
 
                 {docs.map((d) => (
-                    <li
-                        key={d.id}
-                        className="flex items-center justify-between p-4"
-                    >
-                        <a
-                            href={d.document_url}
-                            target="_blank"
-                            className="text-blue-600 hover:underline"
-                        >
-                            {d.document_name}
-                        </a>
-
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => removeDocument(d)}
-                        >
+                    <li key={d.id} className="flex items-center justify-between p-4">
+                        <div className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-muted-foreground" />
+                            <a href={d.document_url} target="_blank" className="text-blue-600 hover:underline">{d.document_name}</a>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => removeDocument(d)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                     </li>

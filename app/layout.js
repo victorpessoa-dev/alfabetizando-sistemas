@@ -1,4 +1,5 @@
 import "./globals.css"
+import Providers from "./providers"
 
 export const metadata = {
   title: "Alfabetizando Sistemas - Gestão de Reforço Escolar",
@@ -7,7 +8,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
   )
 }

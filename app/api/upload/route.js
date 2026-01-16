@@ -1,111 +1,121 @@
 import { createClient } from "@/lib/supabase/client"
-import formidable from "formidable"
-import fs from "fs"
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
+/* ===============================
+   FUNÇÃO PARA SANITIZAR NOMES
+=============================== */
+function sanitizeFileName(name) {
+  return name
+    .normalize("NFD")                 // remove acentos
+    .replace(/[\u0300-\u036f]/g, "")  // remove diacríticos
+    .replace(/[^a-zA-Z0-9-_\.]/g, "_") // substitui caracteres inválidos
 }
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método não permitido" })
-  }
+/* ===============================
+   POST HANDLER
+=============================== */
+export async function POST(req) {
+  try {
+    const supabase = createClient()
 
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return res.status(401).json({ error: "Usuário não autenticado" })
-  }
-
-  const form = new formidable.IncomingForm()
-
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      return res.status(500).json({ error: "Erro ao processar arquivo" })
+    // 1️⃣ Pega usuário logado
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: "Usuário não autenticado" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      )
     }
 
-    try {
-      const file = files.file // arquivo do input name="file"
-      const type = fields.type // "photo" ou "document"
-      const studentId = fields.studentId // UUID do aluno
-      const documentName = fields.documentName || null
-      const documentType = fields.documentType || null
+    // 2️⃣ Pega FormData (App Router)
+    const formData = await req.formData()
+    const file = formData.get("file")
+    const type = formData.get("type") // "photo" ou "document"
+    const studentId = formData.get("studentId")
+    const documentName = formData.get("documentName") || null
+    const documentType = formData.get("documentType") || null
 
-      if (!file || !type || !studentId) {
-        return res.status(400).json({ error: "Arquivo, tipo ou studentId faltando" })
-      }
+    if (!file || !type || !studentId) {
+      return new Response(
+        JSON.stringify({ error: "Arquivo, tipo ou studentId faltando" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      )
+    }
 
-      const bucket = type === "photo" ? "students-photos" : "student-documents"
-      const fileExt = file.originalFilename.split(".").pop()
-      const fileName = `${studentId}_${Date.now()}.${fileExt}`
-      const filePath = `${fileName}`
+    // 3️⃣ Escolhe bucket
+    const bucket = type === "photo" ? "students-photos" : "student-documents"
 
-      // Faz upload para o bucket
-      const fileData = fs.readFileSync(file.filepath)
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, fileData, {
-          contentType: file.mimetype,
-          upsert: false,
+    // 4️⃣ Sanitiza nome do arquivo e pastas
+    const safeStudentId = sanitizeFileName(studentId)
+    const safeFileName = `${Date.now()}-${sanitizeFileName(file.name)}`
+    const filePath = type === "photo"
+      ? `${safeStudentId}/${safeFileName}` // fotos podem ficar dentro de pasta do aluno
+      : `${safeStudentId}/documents/${safeFileName}` // documentos em subpasta "documents"
+
+    // 5️⃣ Converte arquivo para Buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const fileBuffer = Buffer.from(arrayBuffer)
+
+    // 6️⃣ Faz upload no Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, fileBuffer, { contentType: file.type, upsert: false })
+
+    if (uploadError) throw new Error(uploadError.message)
+
+    // 7️⃣ Cria signed URL temporária (1 hora)
+    const { data: signedUrlData } = supabase.storage
+      .from(bucket)
+      .createSignedUrl(filePath, 60 * 60)
+
+    // 8️⃣ Atualiza banco de dados
+    let dbResult
+    if (type === "photo") {
+      // Foto do aluno
+      const { data, error } = await supabase
+        .from("students")
+        .update({ photo_url: signedUrlData.signedUrl })
+        .eq("id", studentId)
+        .eq("user_id", user.id)
+        .select()
+        .single()
+      if (error) throw new Error(error.message)
+      dbResult = data
+    } else {
+      // Documento
+      const { data, error } = await supabase
+        .from("documents")
+        .insert({
+          student_id: studentId,
+          document_name: documentName || file.name,
+          document_type: documentType || file.type,
+          document_url: signedUrlData.signedUrl,
+          storage_path: filePath,
+          user_id: user.id,
         })
+        .select()
+        .single()
+      if (error) throw new Error(error.message)
+      dbResult = data
+    }
 
-      if (uploadError) {
-        return res.status(500).json({ error: uploadError.message })
-      }
-
-      // URL privada ou assinada
-      const { data: signedUrlData } = supabase.storage
-        .from(bucket)
-        .createSignedUrl(filePath, 60 * 60) // URL válida por 1 hora
-
-      let dbResult
-
-      if (type === "photo") {
-        // Atualiza students.photo_url
-        const { data, error } = await supabase
-          .from("students")
-          .update({ photo_url: signedUrlData.signedUrl })
-          .eq("id", studentId)
-          .eq("user_id", user.id)
-          .select()
-          .single()
-        if (error) return res.status(500).json({ error: error.message })
-        dbResult = data
-      } else {
-        // Insere documento na tabela documents
-        const { data, error } = await supabase
-          .from("documents")
-          .insert({
-            student_id: studentId,
-            document_name: documentName || file.originalFilename,
-            document_type: documentType || file.mimetype,
-            document_url: signedUrlData.signedUrl,
-            storage_path: filePath,
-            user_id: user.id,
-          })
-          .select()
-          .single()
-        if (error) return res.status(500).json({ error: error.message })
-        dbResult = data
-      }
-
-      res.status(200).json({
+    // 9️⃣ Retorna JSON de sucesso
+    return new Response(
+      JSON.stringify({
         message: "Upload realizado com sucesso",
-        fileName,
+        fileName: safeFileName,
         filePath,
         signedUrl: signedUrlData.signedUrl,
         bucket,
         record: dbResult,
-      })
-    } catch (error) {
-      console.error(error)
-      res.status(500).json({ error: "Erro interno ao fazer upload" })
-    }
-  })
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    )
+
+  } catch (err) {
+    console.error("Upload error:", err)
+    return new Response(
+      JSON.stringify({ error: err.message || "Erro interno ao fazer upload" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    )
+  }
 }
