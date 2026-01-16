@@ -2,315 +2,287 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Plus, Trash2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { Plus, ChevronDown, Trash2 } from "lucide-react"
 
 export default function PagamentosPage() {
-  const [payments, setPayments] = useState([])
-  const [students, setStudents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [openDialog, setOpenDialog] = useState(false)
-  const [deleteId, setDeleteId] = useState(null)
-  const [formData, setFormData] = useState({
-    student_id: "",
-    month: new Date().toISOString().split("T")[0],
-    amount: "",
-    paid: false,
-    observations: "",
-  })
-  const { toast } = useToast()
   const supabase = createClient()
+  const { toast } = useToast()
+
+  const [user, setUser] = useState(null)
+  const [students, setStudents] = useState([])
+  const [data, setData] = useState([])
+  const [expanded, setExpanded] = useState(null)
+
+  // modal
+  const [openModal, setOpenModal] = useState(false)
+  const [newPayment, setNewPayment] = useState({
+    student_id: "",
+    start_day: "",
+    amount: "",
+  })
+
+  // paginação
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
 
   useEffect(() => {
-    loadData()
+    init()
   }, [])
 
-  async function loadData() {
-    setLoading(true)
-
-    const { data: studentsData } = await supabase.from("students").select("*").eq("active", true).order("name")
-
-    const { data: paymentsData } = await supabase.from("payments").select("*").order("month", { ascending: false })
-
-    setStudents(studentsData || [])
-    setPayments(paymentsData || [])
-    setLoading(false)
+  async function init() {
+    const { data } = await supabase.auth.getUser()
+    if (!data?.user) return
+    setUser(data.user)
+    loadData(data.user.id)
   }
 
-  function handleInputChange(e) {
-    const { name, value, type, checked } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }))
+  async function loadData(userId) {
+    const { data: payments } = await supabase
+      .from("payments")
+      .select(`
+        id,
+        reference_month,
+        amount,
+        paid,
+        student_id,
+        students (
+          id,
+          name_completo
+        )
+      `)
+      .eq("user_id", userId)
+      .order("reference_month", { ascending: false })
+
+    const grouped = {}
+
+    payments.forEach(p => {
+      const sid = p.students.id
+      if (!grouped[sid]) {
+        grouped[sid] = {
+          student: p.students,
+          payments: [],
+        }
+      }
+      grouped[sid].payments.push(p)
+    })
+
+    setData(Object.values(grouped))
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
+  async function loadStudents() {
+    const { data } = await supabase
+      .from("students")
+      .select("id, name_completo")
+      .eq("user_id", user.id)
+      .order("name_completo")
+    setStudents(data || [])
+  }
 
-    try {
-      const { error } = await supabase.from("payments").insert([formData])
+  useEffect(() => {
+    if (openModal && user) loadStudents()
+  }, [openModal])
 
-      if (error) throw error
+  async function createPayments() {
+    const year = new Date().getFullYear()
+    const startMonth = new Date().getMonth() + 1
 
-      toast({
-        title: "Pagamento registrado",
-        description: "O pagamento foi registrado com sucesso.",
-      })
+    const inserts = []
 
-      setFormData({
-        student_id: "",
-        month: new Date().toISOString().split("T")[0],
-        amount: "",
+    for (let m = startMonth; m <= 12; m++) {
+      const date = new Date(
+        year,
+        m - 1,
+        Number(newPayment.start_day)
+      )
+        .toISOString()
+        .split("T")[0]
+
+      inserts.push({
+        student_id: newPayment.student_id,
+        reference_month: date,
+        amount: Number(newPayment.amount),
         paid: false,
-        observations: "",
-      })
-      setOpenDialog(false)
-      loadData()
-    } catch (error) {
-      toast({
-        title: "Erro ao registrar pagamento",
-        description: error.message,
-        variant: "destructive",
+        user_id: user.id,
       })
     }
-  }
 
-  async function handleDelete() {
-    try {
-      const { error } = await supabase.from("payments").delete().eq("id", deleteId)
+    const { data: existing } = await supabase
+      .from("payments")
+      .select("reference_month")
+      .eq("student_id", newPayment.student_id)
+      .eq("user_id", user.id)
 
-      if (error) throw error
+    const existingDates = existing.map(e => e.reference_month)
+    const filtered = inserts.filter(i => !existingDates.includes(i.reference_month))
 
-      toast({
-        title: "Pagamento excluído",
-        description: "O pagamento foi excluído com sucesso.",
-      })
-
-      loadData()
-      setDeleteId(null)
-    } catch (error) {
-      toast({
-        title: "Erro ao excluir",
-        description: error.message,
-        variant: "destructive",
-      })
+    if (filtered.length === 0) {
+      toast({ title: "Aviso", description: "Mensalidades já existem" })
+      return
     }
+
+    await supabase.from("payments").insert(filtered)
+
+    toast({ title: "Sucesso", description: "Mensalidades criadas" })
+    setOpenModal(false)
+    setNewPayment({ student_id: "", start_day: "", amount: "" })
+    loadData(user.id)
   }
 
-  async function togglePaymentStatus(id, currentStatus) {
-    try {
-      const { error } = await supabase.from("payments").update({ paid: !currentStatus }).eq("id", id)
-
-      if (error) throw error
-
-      loadData()
-    } catch (error) {
-      toast({
-        title: "Erro ao atualizar",
-        description: error.message,
-        variant: "destructive",
-      })
-    }
+  async function togglePaid(id, paid) {
+    await supabase.from("payments").update({ paid: !paid }).eq("id", id)
+    loadData(user.id)
   }
 
-  function getStudentName(studentId) {
-    return students.find((s) => s.id === studentId)?.name || "Desconhecido"
+  async function deletePayment(id) {
+    await supabase.from("payments").delete().eq("id", id)
+    loadData(user.id)
   }
 
-  function formatDate(dateString) {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
-  }
-
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Carregando...</p>
-      </div>
-    )
+  function formatCurrency(v) {
+    return Number(v).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Controle de Pagamentos</h1>
-          <p className="text-muted-foreground">Gerencie os pagamentos dos alunos</p>
-        </div>
-        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Pagamento
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Registrar Pagamento</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4">
-              <div>
-                <Label htmlFor="student_id">Aluno *</Label>
-                <select
-                  id="student_id"
-                  name="student_id"
-                  value={formData.student_id}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border rounded-md"
-                >
-                  <option value="">Selecione um aluno</option>
-                  {students.map((student) => (
-                    <option key={student.id} value={student.id}>
-                      {student.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="month">Mês *</Label>
-                <Input
-                  id="month"
-                  name="month"
-                  type="date"
-                  value={formData.month}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="amount">Valor *</Label>
-                <Input
-                  id="amount"
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="paid"
-                  name="paid"
-                  checked={formData.paid}
-                  onChange={handleInputChange}
-                  className="w-4 h-4"
-                />
-                <Label htmlFor="paid" className="font-normal cursor-pointer">
-                  Pago
-                </Label>
-              </div>
-              <div>
-                <Label htmlFor="observations">Observações</Label>
-                <Textarea
-                  id="observations"
-                  name="observations"
-                  value={formData.observations}
-                  onChange={handleInputChange}
-                  rows={3}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit">Salvar</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+    <div className="space-y-6">
+
+      {/* CABEÇALHO */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Pagamentos</h1>
+        <Button onClick={() => setOpenModal(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Pagamento
+        </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {payments.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-muted-foreground">Nenhum pagamento registrado</p>
+      {/* LISTA POR ALUNO */}
+      {data.slice((page - 1) * limit, page * limit).map(item => (
+        <Card key={item.student.id}>
+          <CardContent>
+            <div
+              className="flex justify-between items-center cursor-pointer"
+              onClick={() =>
+                setExpanded(expanded === item.student.id ? null : item.student.id)
+              }
+            >
+              <strong>{item.student.name_completo}</strong>
+              <ChevronDown />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b bg-muted/50">
+
+            {expanded === item.student.id && (
+              <table className="w-full mt-4">
+                <thead>
                   <tr>
-                    <th className="text-left p-4 font-medium">Aluno</th>
-                    <th className="text-left p-4 font-medium">Período</th>
-                    <th className="text-left p-4 font-medium">Valor</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-right p-4 font-medium">Ações</th>
+                    <th>Mês</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {payments.map((payment) => (
-                    <tr key={payment.id} className="border-b hover:bg-muted/50">
-                      <td className="p-4">{getStudentName(payment.student_id)}</td>
-                      <td className="p-4">{formatDate(payment.month)}</td>
-                      <td className="p-4 font-medium">R$ {Number.parseFloat(payment.amount).toFixed(2)}</td>
-                      <td className="p-4">
-                        <span
-                          className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                            payment.paid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {payment.paid ? "Pago" : "Pendente"}
-                        </span>
+                  {item.payments.map(p => (
+                    <tr key={p.id} className="border-t">
+                      <td>
+                        {new Date(p.reference_month).toLocaleDateString("pt-BR", {
+                          month: "long",
+                          year: "numeric",
+                        })}
                       </td>
-                      <td className="p-4">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => togglePaymentStatus(payment.id, payment.paid)}
-                          >
-                            {payment.paid ? "Marcar como pendente" : "Marcar como pago"}
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => setDeleteId(payment.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
+                      <td>{formatCurrency(p.amount)}</td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant={p.paid ? "default" : "outline"}
+                          onClick={() => togglePaid(p.id, p.paid)}
+                        >
+                          {p.paid ? "Pago" : "Pendente"}
+                        </Button>
+                      </td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => deletePayment(p.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      ))}
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este pagamento? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* PAGINAÇÃO */}
+      <div className="flex justify-between items-center">
+        <select value={limit} onChange={e => setLimit(Number(e.target.value))}>
+          <option value={10}>10</option>
+          <option value={15}>15</option>
+          <option value={20}>20</option>
+        </select>
+
+        <div className="flex gap-2">
+          <Button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+            Anterior
+          </Button>
+          <Button onClick={() => setPage(p => p + 1)}>
+            Próxima
+          </Button>
+        </div>
+      </div>
+
+      {/* MODAL */}
+      {openModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded w-full max-w-md space-y-4">
+            <h2 className="text-xl font-bold">Novo Pagamento</h2>
+
+            <select
+              className="w-full border p-2"
+              value={newPayment.student_id}
+              onChange={e => setNewPayment({ ...newPayment, student_id: e.target.value })}
+            >
+              <option value="">Aluno</option>
+              {students.map(s => (
+                <option key={s.id} value={s.id}>{s.name_completo}</option>
+              ))}
+            </select>
+
+            <Input
+              placeholder="Dia inicial (1 a 28)"
+              type="number"
+              value={newPayment.start_day}
+              onChange={e => setNewPayment({ ...newPayment, start_day: e.target.value })}
+            />
+
+            <Input
+              placeholder="Valor"
+              type="number"
+              value={newPayment.amount}
+              onChange={e => setNewPayment({ ...newPayment, amount: e.target.value })}
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenModal(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={createPayments}>
+                Criar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

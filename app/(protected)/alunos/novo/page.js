@@ -22,8 +22,8 @@ export default function NovoAlunoPage() {
     guardian_name: "",
     whatsapp: "",
     grade: "",
-    escola: "",
-    endereco: "",
+    school_name: "",
+    address: "",
   })
 
   function handleChange(e) {

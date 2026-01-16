@@ -145,7 +145,7 @@ export default function AlunosPage() {
                     alt={s.name_completo}
                     width={40}
                     height={40}
-                    className="rounded-full object-cover"
+                    className="h-10 w-10 rounded-full object-cover"
                   />
                   <div>
                     <h3 className="font-semibold">{s.name_completo}</h3>
