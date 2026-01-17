@@ -88,12 +88,13 @@ export default function AlunosPage() {
   }
 
   if (loading) {
-    return <p className="text-muted-foreground">Carregando alunos...</p>
+    return <div className="flex justify-center items-center py-12">
+      <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+    </div>
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Alunos</h1>
         <Link href="/alunos/novo">
@@ -104,7 +105,6 @@ export default function AlunosPage() {
         </Link>
       </div>
 
-      {/* Busca e visualização */}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -133,29 +133,38 @@ export default function AlunosPage() {
         </Button>
       </div>
 
-      {/* Grid */}
       {view === "grid" && (
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((s) => (
             <Card key={s.id}>
               <CardContent className="p-4 space-y-2">
+                <div className="h-10 w-10 rounded-full overflow-hidden border flex items-center justify-center">
+                  {s.photo_url ? (
+                    <Image
+                      src={s.photo_url}
+                      alt={s.name_completo}
+                      width={56}
+                      height={56}
+                      className="h-full w-full object-cover object-center"
+                    />
+                  ) : (<div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-sm font-bold text-primary">
+                      {s.name_completo?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-3">
-                  <Image
-                    src={s.photo_url || "/avatar-placeholder.png"}
-                    alt={s.name_completo}
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
+
                   <div>
-                    <h3 className="font-semibold">{s.name_completo}</h3>
+                    <h3 className="font-semibold p-0">{s.name_completo}</h3>
                     <p className="text-sm text-muted-foreground">{s.grade}</p>
                   </div>
                 </div>
 
                 <p className="text-sm">{s.guardian_name}</p>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-4 py-0">
                   <Link href={`/alunos/${s.id}`}>
                     <Button size="sm" variant="outline">
                       <Eye className="h-4 w-4" />
@@ -182,40 +191,38 @@ export default function AlunosPage() {
         </div>
       )}
 
-      {/* Lista */}
       {view === "list" && (
         <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead className="border-b">
+              <thead className="border-b ">
                 <tr>
                   <th className="p-3 text-left">Aluno</th>
                   <th className="p-3 text-left">Série</th>
                   <th className="p-3 text-left">Responsável</th>
-                  <th className="p-3 text-right">Ações</th>
+                  <th className="p-3 text-left">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((s) => (
-                  <tr key={s.id} className="border-b">
-                    <td className="p-3 flex items-center gap-2">
-                      <Image
-                        src={s.photo_url || "/avatar-placeholder.png"}
-                        alt={s.name_completo}
-                        width={32}
-                        height={32}
-                        className="rounded-full object-cover"
-                      />
+                  <tr key={s.id} className="border-b hover:bg-muted">
+                    <td className="p-4 flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full overflow-hidden border flex items-center justify-center">
+                        <Image
+                          src={s.photo_url || "/profile-icon.png"}
+                          alt={s.name_completo}
+                          width={32}
+                          height={32}
+                          className="h-full w-full object-cover object-center"
+                        />
+                      </div>
                       {s.name_completo}
                     </td>
-                    <td className="p-3">{s.grade}</td>
-                    <td className="p-3">{s.guardian_name}</td>
-                    <td className="p-3 flex justify-end gap-2">
+                    <td className="p-4">{s.grade}</td>
+                    <td className="p-4">{s.guardian_name}</td>
+                    <td className="p-4 gap-2">
                       <Link href={`/alunos/${s.id}`}>
                         <Eye className="h-4 w-4 cursor-pointer" />
-                      </Link>
-                      <Link href={`/alunos/${s.id}/editar`}>
-                        <Pencil className="h-4 w-4 cursor-pointer" />
                       </Link>
                     </td>
                   </tr>

@@ -6,25 +6,36 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
 
 export default function EditarAlunoPage() {
   const supabase = createClient()
   const { id } = useParams()
   const router = useRouter()
+  const { toast } = useToast()
 
   const [form, setForm] = useState({})
   const [photo, setPhoto] = useState(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     loadStudent()
   }, [])
 
   async function loadStudent() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("students")
       .select("*")
       .eq("id", id)
       .single()
+
+    if (error) {
+      toast({
+        title: "Erro ao carregar aluno",
+        variant: "destructive",
+      })
+      return
+    }
 
     setForm(data)
   }
@@ -35,48 +46,96 @@ export default function EditarAlunoPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    setLoading(true)
 
     let photo_url = form.photo_url
 
-    if (photo) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+    try {
+      if (photo) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
 
-      const path = `${user.id}/${Date.now()}-${photo.name}`
+        const path = `${user.id}/${Date.now()}-${photo.name}`
 
-      await supabase.storage.from("students-photos").upload(path, photo)
+        const { error: uploadError } = await supabase.storage
+          .from("students-photos")
+          .upload(path, photo)
 
-      photo_url = supabase.storage
-        .from("students-photos")
-        .getPublicUrl(path).data.publicUrl
+        if (uploadError) throw uploadError
+
+        photo_url = supabase.storage
+          .from("students-photos")
+          .getPublicUrl(path).data.publicUrl
+      }
+
+      const { error } = await supabase
+        .from("students")
+        .update({ ...form, photo_url })
+        .eq("id", id)
+
+      if (error) throw error
+
+      toast({
+        title: "Aluno atualizado com sucesso",
+        description: "As informações foram salvas.",
+      })
+
+      router.back()
+    } catch (err) {
+      toast({
+        title: "Erro ao salvar alterações",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    await supabase
-      .from("students")
-      .update({ ...form, photo_url })
-      .eq("id", id)
-
-    router.push(`/alunos/${id}`)
   }
 
   return (
     <Card>
-      <CardContent className="p-6">
-        <h1 className="text-xl font-bold mb-4">Editar Aluno</h1>
+      <CardContent className="p-6 space-y-6">
+        <h1 className="text-2xl font-bold">Editar Aluno</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input name="name_completo" value={form.name_completo || ""} onChange={handleChange} />
-          <Input type="date" name="birth_date" value={form.birth_date || ""} onChange={handleChange} />
-          <Input name="guardian_name" value={form.guardian_name || ""} onChange={handleChange} />
-          <Input name="whatsapp" value={form.whatsapp || ""} onChange={handleChange} />
+          <Input
+            name="name_completo"
+            placeholder="Nome completo"
+            value={form.name_completo || ""}
+            onChange={handleChange}
+            required
+          />
+
+          <Input
+            type="date"
+            name="birth_date"
+            value={form.birth_date || ""}
+            onChange={handleChange}
+            required
+          />
+
+          <Input
+            name="guardian_name"
+            placeholder="Responsável"
+            value={form.guardian_name || ""}
+            onChange={handleChange}
+          />
+
+          <Input
+            name="whatsapp"
+            placeholder="WhatsApp"
+            value={form.whatsapp || ""}
+            onChange={handleChange}
+          />
 
           <select
             name="grade"
             value={form.grade || ""}
             onChange={handleChange}
-            className="w-full border p-2 rounded"
+            className="w-full border rounded-md p-2"
+            required
           >
+            <option value="">Selecione a série</option>
             <option>Educação Infantil</option>
             <option>1º Ano</option>
             <option>2º Ano</option>
@@ -89,13 +148,39 @@ export default function EditarAlunoPage() {
             <option>9º Ano</option>
           </select>
 
-          <Input name="school_name" value={form.school_name || ""} onChange={handleChange} />
+          <Input
+            name="school_name"
+            placeholder="Escola"
+            value={form.school_name || ""}
+            onChange={handleChange}
+          />
 
-          <Input name="address" value={form.address || ""} onChange={handleChange} />
+          <Input
+            name="address"
+            placeholder="Endereço"
+            value={form.address || ""}
+            onChange={handleChange}
+          />
 
-          <Input type="file" onChange={(e) => setPhoto(e.target.files[0])} />
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhoto(e.target.files[0])}
+          />
 
-          <Button>Salvar</Button>
+          <div className="flex gap-2">
+            <Button disabled={loading}>
+              {loading ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+            >
+              Cancelar
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

@@ -1,11 +1,24 @@
 "use client"
 
-import { createClient } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+    Card,
+    CardContent,
+    CardHeader,
+} from "@/components/ui/card"
+
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
 
@@ -15,8 +28,10 @@ export default function ConfiguracoesPage() {
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [open, setOpen] = useState(false)
 
-    const [form, setForm] = useState({
+    const [school, setSchool] = useState({
+        id: "",
         school_name: "",
         school_phone: "",
         school_email: "",
@@ -25,192 +40,208 @@ export default function ConfiguracoesPage() {
     })
 
     useEffect(() => {
-        loadSettings()
+        loadSchool()
     }, [])
 
-    async function loadSettings() {
-        setLoading(true)
-
+    async function loadSchool() {
         const {
             data: { user },
         } = await supabase.auth.getUser()
 
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from("school_settings")
             .select("*")
             .eq("user_id", user.id)
             .single()
 
-        if (error && error.code !== "PGRST116") {
-            toast({ title: "Erro", description: error.message, variant: "destructive" })
-        }
-
         if (data) {
-            setForm(data)
+            setSchool(data)
         } else {
-            // cria automaticamente se não existir
-            await supabase.from("school_settings").insert({
-                user_id: user.id,
-            })
+            const { data: created } = await supabase
+                .from("school_settings")
+                .insert({ user_id: user.id })
+                .select()
+                .single()
+
+            setSchool(created)
         }
 
         setLoading(false)
     }
 
     function handleChange(e) {
-        const { name, value } = e.target
-        setForm((prev) => ({ ...prev, [name]: value }))
+        setSchool({ ...school, [e.target.name]: e.target.value })
     }
 
     async function handleSave(e) {
         e.preventDefault()
         setSaving(true)
 
-        const { error } = await supabase
+        await supabase
             .from("school_settings")
             .update({
-                school_name: form.school_name,
-                school_phone: form.school_phone,
-                school_email: form.school_email,
-                school_address: form.school_address,
-                school_logo_url: form.school_logo_url,
+                school_name: school.school_name,
+                school_phone: school.school_phone,
+                school_email: school.school_email,
+                school_address: school.school_address,
             })
-            .eq("id", form.id)
+            .eq("id", school.id)
 
-        if (error) {
-            toast({ title: "Erro", description: error.message, variant: "destructive" })
-        } else {
-            toast({ title: "Configurações salvas com sucesso" })
-        }
-
+        toast({ title: "Configurações salvas com sucesso" })
         setSaving(false)
+        setOpen(false)
     }
-
-    if (loading) return <p>Carregando...</p>
 
     async function handleLogoUpload(file) {
         if (!file) return
-
         setSaving(true)
 
         const {
             data: { user },
         } = await supabase.auth.getUser()
 
-        const fileExt = file.name.split(".").pop()
-        const filePath = `${user.id}/logo.${fileExt}`
+        const ext = file.name.split(".").pop()
+        const path = `${user.id}/logo.${ext}`
 
-        const { error: uploadError } = await supabase.storage
+        await supabase.storage
             .from("school-logos")
-            .upload(filePath, file, { upsert: true })
+            .upload(path, file, { upsert: true })
 
-        if (uploadError) {
-            toast({
-                title: "Erro no upload",
-                description: uploadError.message,
-                variant: "destructive",
-            })
-            setSaving(false)
-            return
-        }
-
-        const { data: urlData } = supabase.storage
+        const { data } = supabase.storage
             .from("school-logos")
-            .getPublicUrl(filePath)
-
-        const logoUrl = urlData.publicUrl
+            .getPublicUrl(path)
 
         await supabase
             .from("school_settings")
-            .update({ school_logo_url: logoUrl })
-            .eq("id", form.id)
+            .update({ school_logo_url: data.publicUrl })
+            .eq("id", school.id)
 
-        setForm((prev) => ({ ...prev, school_logo_url: logoUrl }))
-
-        toast({ title: "Logo atualizada com sucesso" })
+        setSchool((prev) => ({ ...prev, school_logo_url: data.publicUrl }))
+        toast({ title: "Logo atualizada" })
         setSaving(false)
     }
 
+    if (loading) {
+        return (
+            <div className="flex justify-center py-12">
+                <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            </div>
+        )
+    }
 
     return (
-        <div className="max-w-3xl space-y-6">
+        <div className="max-w-4xl space-y-6">
             <h1 className="text-3xl font-bold">Configurações da Escola</h1>
 
-            <form onSubmit={handleSave}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Informações da Escola</CardTitle>
-                    </CardHeader>
+            <Card>
+                <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-center gap-6">
 
-                    <CardContent className="space-y-4">
-                        <div>
-                            <Label>Nome da Escola</Label>
-                            <Input
-                                name="school_name"
-                                value={form.school_name || ""}
-                                onChange={handleChange}
+                        {school.school_logo_url ? (
+                            <img
+                                src={school.school_logo_url}
+                                alt={school.school_name}
+                                className="h-32 w-32 border-gray-200"
                             />
-                        </div>
+                        ) : (
+                            <div className="h-32 w-32 rounded-full bg-primary/10 flex items-center justify-center border border-gray-200">
+                                <span className="text-3xl font-bold text-primary">
+                                    {school.school_name?.charAt(0)?.toUpperCase() || "E"}
+                                </span>
+                            </div>
+                        )}
 
-                        <div>
-                            <Label>Telefone</Label>
-                            <Input
-                                name="school_phone"
-                                value={form.school_phone || ""}
-                                onChange={handleChange}
-                            />
-                        </div>
+                        <div className="flex-1 space-y-1">
+                            <h1 className="text-2xl font-bold">
+                                {school.school_name || "Nome da Escola"}
+                            </h1>
 
-                        <div>
-                            <Label>Email</Label>
-                            <Input
-                                name="school_email"
-                                type="email"
-                                value={form.school_email || ""}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        <div>
-                            <Label>Endereço</Label>
-                            <Input
-                                name="school_address"
-                                value={form.school_address || ""}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        <div>
-                            <Label>Logo</Label>
-
-                            {form.school_logo_url && (
-                                <div className="mb-3">
-                                    <Image
-                                        src={form.school_logo_url}
-                                        alt="Logo da escola"
-                                        width={120}
-                                        height={120}
-                                        className="rounded-md"
-                                    />
-                                </div>
+                            {school.school_email && (
+                                <p className="text-sm text-muted-foreground">
+                                    Email: {school.school_email}
+                                </p>
                             )}
 
-                            <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleLogoUpload(e.target.files[0])}
-                            />
+                            {school.school_phone && (
+                                <p className="text-sm text-muted-foreground">
+                                    Telefone: {school.school_phone}
+                                </p>
+                            )}
+
+                            {school.school_address && (
+                                <p className="text-sm text-muted-foreground">
+                                    Endereço: {school.school_address}
+                                </p>
+                            )}
                         </div>
 
+                        {/* BOTÃO EDITAR */}
+                        <Dialog open={open} onOpenChange={setOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline">Editar</Button>
+                            </DialogTrigger>
 
-                        <div className="pt-4">
-                            <Button type="submit" disabled={saving}>
-                                {saving ? "Salvando..." : "Salvar Configurações"}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </form>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Editar Escola</DialogTitle>
+                                </DialogHeader>
+
+                                <form onSubmit={handleSave} className="space-y-4">
+                                    <div>
+                                        <Label>Nome da Escola</Label>
+                                        <Input
+                                            name="school_name"
+                                            value={school.school_name || ""}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Email</Label>
+                                        <Input
+                                            name="school_email"
+                                            type="email"
+                                            value={school.school_email || ""}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Telefone</Label>
+                                        <Input
+                                            name="school_phone"
+                                            value={school.school_phone || ""}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Endereço</Label>
+                                        <Input
+                                            name="school_address"
+                                            value={school.school_address || ""}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Logo</Label>
+                                        <Input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => handleLogoUpload(e.target.files[0])}
+                                        />
+                                    </div>
+
+                                    <Button type="submit" disabled={saving}>
+                                        {saving ? "Salvando..." : "Salvar"}
+                                    </Button>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     )
 }

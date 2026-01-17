@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import Link from "next/link"
+import { Cell } from "recharts"
 
 import {
     Users,
     CalendarCheck,
     CreditCard,
-    Clock,
     Star,
+    BarChart3,
 } from "lucide-react"
 
 import {
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card"
 
 import { Skeleton } from "@/components/ui/skeleton"
+
 import {
     BarChart,
     Bar,
@@ -34,7 +35,6 @@ export default function DashboardPage() {
 
     const [stats, setStats] = useState(null)
     const [attendanceWeek, setAttendanceWeek] = useState([])
-    const [recentStudents, setRecentStudents] = useState([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -44,84 +44,105 @@ export default function DashboardPage() {
     async function loadDashboard() {
         setLoading(true)
 
-        // Total de alunos
-        const { count: totalAlunos } = await supabase
+        const { count: totalStudents } = await supabase
             .from("students")
             .select("*", { count: "exact", head: true })
+            .eq("active", true)
 
-        // Alunos recentes
-        const { data: alunosRecentes } = await supabase
-            .from("students")
-            .select("*")
-            .order("created_at", { ascending: false })
-            .limit(5)
-
-        // Presença hoje
         const today = new Date().toISOString().split("T")[0]
-        const { count: presencaHoje } = await supabase
+
+        const { count: attendanceToday } = await supabase
             .from("attendances")
             .select("*", { count: "exact", head: true })
-            .eq("date", today)
+            .eq("attendance_date", today)
+            .eq("status", "presente")
 
-        // Avaliações hoje
-        const { count: avaliacoesHoje } = await supabase
+        const startOfWeek = new Date()
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1)
+
+        const startISO = startOfWeek.toISOString().split("T")[0]
+
+        const { count: evaluationsWeek } = await supabase
             .from("student_evaluations")
             .select("*", { count: "exact", head: true })
-            .eq("evaluation_date", today)
+            .gte("evaluation_date", startISO)
+            .lte("evaluation_date", today)
 
-        // Pagamentos do mês
-        const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]
-        const lastDay = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split("T")[0]
+        const firstDay = new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            1
+        ).toISOString().split("T")[0]
 
-        const { data: pagamentosMes } = await supabase
+        const lastDay = new Date(
+            new Date().getFullYear(),
+            new Date().getMonth() + 1,
+            0
+        ).toISOString().split("T")[0]
+
+        const { data: payments } = await supabase
             .from("payments")
             .select("amount")
+            .eq("paid", true)
             .gte("reference_month", firstDay)
             .lte("reference_month", lastDay)
-            .eq("paid", true)
 
-        const totalPagamentos = pagamentosMes?.reduce((acc, p) => acc + Number(p.amount), 0) || 0
+        const totalPayments =
+            payments?.reduce((acc, p) => acc + Number(p.amount), 0) || 0
 
-        // Presenças da semana (Seg a Sex)
-        const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex"]
-        const startOfWeek = new Date()
-        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1) // Segunda-feira
-        let attendanceWeekData = []
+        const weekLabels = ["Seg", "Ter", "Qua", "Qui", "Sex"]
+        let weekData = []
+        let totalWeekAttendance = 0
 
         for (let i = 0; i < 5; i++) {
             const day = new Date(startOfWeek)
             day.setDate(day.getDate() + i)
-            const dayISO = day.toISOString().split("T")[0]
+
+            const dateISO = day.toISOString().split("T")[0]
 
             const { count } = await supabase
                 .from("attendances")
                 .select("*", { count: "exact", head: true })
-                .eq("date", dayISO)
+                .eq("attendance_date", dateISO)
+                .eq("status", "presente")
 
-            attendanceWeekData.push({
-                day: weekDays[i],
-                total: count || 0
+            const total = count || 0
+            totalWeekAttendance += total
+
+            weekData.push({
+                day: weekLabels[i],
+                total,
             })
         }
 
+        const weeklyAverage = Math.round(totalWeekAttendance / 5)
+
         setStats({
-            total: totalAlunos || 0,
-            attendanceToday: presencaHoje || 0,
-            paymentsMonth: totalPagamentos,
-            evaluationsToday: avaliacoesHoje || 0,
+            totalStudents: totalStudents || 0,
+            attendanceToday: attendanceToday || 0,
+            weeklyAverage,
+            paymentsMonth: totalPayments,
+            evaluationsWeek: evaluationsWeek || 0,
         })
 
-        setRecentStudents(alunosRecentes || [])
-        setAttendanceWeek(attendanceWeekData)
-
+        setAttendanceWeek(weekData)
         setLoading(false)
     }
 
+    const dayColors = [
+        "#1459ee",
+        "#3772f3",
+        "#598af3",
+        "#628ae2",
+        "#203d7a"
+    ]
+
+
     if (loading) {
         return (
-            <div className="grid gap-4 md:grid-cols-4">
-                {[...Array(4)].map((_, i) => (
-                    <Skeleton key={i} className="h-28" />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-28 rounded-xl" />
                 ))}
             </div>
         )
@@ -130,61 +151,40 @@ export default function DashboardPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                    Dashboard
-                </h1>
+                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
                 <p className="text-muted-foreground">
-                    Visão geral do sistema escolar
+                    Visão geral da escolinha
                 </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <DashboardCard title="Total de Alunos" value={stats.total} icon={Users} />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <DashboardCard title="Total de Alunos" value={stats.totalStudents} icon={Users} />
                 <DashboardCard title="Presença Hoje" value={stats.attendanceToday} icon={CalendarCheck} />
+                <DashboardCard title="Média Semanal" value={stats.weeklyAverage} icon={BarChart3} />
                 <DashboardCard title="Pagamentos do Mês" value={`R$ ${stats.paymentsMonth.toLocaleString("pt-BR")}`} icon={CreditCard} />
-                <DashboardCard title="Avaliações Hoje" value={stats.evaluationsToday} icon={Star} />
+                <DashboardCard title="Avaliações da Semana" value={stats.evaluationsWeek} icon={Star} />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Presenças da Semana</CardTitle>
-                    </CardHeader>
-                    <CardContent className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={attendanceWeek}>
-                                <XAxis dataKey="day" />
-                                <YAxis />
-                                <Tooltip />
-                                <Bar dataKey="total" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Presença da Semana (Presentes)</CardTitle>
+                </CardHeader>
+                <CardContent className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={attendanceWeek}>
+                            <XAxis dataKey="day" />
+                            <YAxis allowDecimals={false} />
+                            <Tooltip cursor={false} />
+                            <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                                {attendanceWeek.map((_, index) => (
+                                    <Cell key={index} fill={dayColors[index % dayColors.length]} />
+                                ))}
+                            </Bar>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Alunos Recentes</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {recentStudents.map((s) => (
-                            <Link
-                                key={s.id}
-                                href={`/alunos/${s.id}`}
-                                className="flex items-center justify-between rounded-md border p-3 hover:bg-muted"
-                            >
-                                <div>
-                                    <p className="font-medium">{s.nome_completo}</p>
-                                    <span className="text-xs text-muted-foreground">
-                                        {s.active ? "Ativo" : "Inativo"}
-                                    </span>
-                                </div>
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                            </Link>
-                        ))}
-                    </CardContent>
-                </Card>
-            </div>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
         </div>
     )
 }

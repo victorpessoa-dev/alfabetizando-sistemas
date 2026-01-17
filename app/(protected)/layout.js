@@ -12,7 +12,9 @@ import {
   FileText,
   CreditCard,
   Settings,
-  LogOut
+  BarChart,
+  LogOut,
+  StarIcon
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -54,6 +56,9 @@ export default function ProtectedLayout({ children }) {
     { href: "/", label: "Dashboard", icon: Home },
     { href: "/alunos", label: "Alunos", icon: Users },
     { href: "/frequencia", label: "Frequência", icon: CalendarCheck },
+    { href: "/pagamentos", label: "Pagamentos", icon: CreditCard },
+    { href: "/avaliacoes", label: "Avaliações", icon: StarIcon },
+    // { href: "/relatorio-semanal", label: "Relatórios Semanal", icon: BarChart },
     { href: "/documentos", label: "Documentos", icon: FileText },
     { href: "/configuracoes", label: "Configurações", icon: Settings },
   ]
@@ -66,7 +71,7 @@ export default function ProtectedLayout({ children }) {
         <div className="flex items-center gap-3 px-4 py-5">
           {school?.school_logo_url ? (
             <Image
-              src={school.school_logo_url}
+              src={school.school_logo_url || "/logo_sistema.png"}
               alt="Logo"
               width={42}
               height={42}

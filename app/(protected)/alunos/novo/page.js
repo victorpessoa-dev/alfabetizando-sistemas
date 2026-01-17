@@ -34,52 +34,57 @@ export default function NovoAlunoPage() {
     e.preventDefault()
     setLoading(true)
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
 
-    let photo_url = null
-
-    if (photo) {
-      const fileExt = photo.name.split(".").pop()
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from("students-photos")
-        .upload(filePath, photo)
-
-      if (uploadError) {
-        toast({ title: "Erro ao enviar foto", variant: "destructive" })
-        setLoading(false)
-        return
+      if (userError || !user) {
+        throw new Error("Usuário não autenticado")
       }
 
-      const { data } = supabase.storage
-        .from("students-photos")
-        .getPublicUrl(filePath)
+      let photo_url = null
 
-      photo_url = data.publicUrl
-    }
+      if (photo) {
+        const fileExt = photo.name.split(".").pop()
+        const filePath = `${user.id}/${Date.now()}.${fileExt}`
 
-    const { error } = await supabase.from("students").insert({
-      ...form,
-      photo_url,
-      active: true,
-      user_id: user.id,
-    })
+        const { error: uploadError } = await supabase.storage
+          .from("students-photos")
+          .upload(filePath, photo)
 
-    if (error) {
+        if (uploadError) throw uploadError
+
+        photo_url = supabase.storage
+          .from("students-photos")
+          .getPublicUrl(filePath).data.publicUrl
+      }
+
+      const { error } = await supabase.from("students").insert({
+        ...form,
+        photo_url,
+        active: true,
+        user_id: user.id,
+      })
+
+      if (error) throw error
+
+      toast({
+        title: "Aluno cadastrado com sucesso",
+        description: "As informações foram salvas.",
+      })
+
+      router.back()
+    } catch (err) {
       toast({
         title: "Erro ao salvar aluno",
-        description: error.message,
+        description: err.message || "Erro inesperado",
         variant: "destructive",
       })
-    } else {
-      toast({ title: "Aluno cadastrado com sucesso" })
-      router.push("/alunos")
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
@@ -151,9 +156,19 @@ export default function NovoAlunoPage() {
             onChange={(e) => setPhoto(e.target.files[0])}
           />
 
-          <Button disabled={loading}>
-            {loading ? "Salvando..." : "Salvar Aluno"}
-          </Button>
+          <div className="flex gap-2">
+            <Button disabled={loading}>
+              {loading ? "Salvando..." : "Salvar Aluno"}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+            >
+              Cancelar
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

@@ -5,13 +5,25 @@ module.exports = {
         "./components/**/*.{js,jsx}",
     ],
     theme: {
+        fontFamily: {
+            sans: [
+                "system-ui",
+                "-apple-system",
+                "BlinkMacSystemFont",
+                "Segoe UI",
+                "Roboto",
+                "Helvetica Neue",
+                "Arial",
+                "sans-serif",
+            ],
+            mono: ["monospace"],
+        },
         extend: {
             colors: {
-                primary: "#2563eb",   // azul principal
-                secondary: "#b6b6b6", // cinza escuro
+                primary: "#2563eb",
+                secondary: "#b6b6b6",
             },
         },
     },
     plugins: [],
 }
-

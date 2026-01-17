@@ -44,18 +44,18 @@ export default function LoginPage() {
         <div className="flex flex-col gap-6">
           <div className="flex justify-center mb-6">
             <Image
-              src="/sheila.png"
+              src="/alfa_icon.png"
               alt="Alfabetizando Sistemas"
-              width={200}
-              height={200}
-              className="w-auto max-w-[200px]"
+              width={500}
+              height={500}
+              className="w-auto max-w-[500px]"
               priority
             />
           </div>
 
           <Card>
             <CardHeader>
-              <CardDescription className="text-center">Sistema de Gerenciamento Escolar</CardDescription>
+              <CardDescription className="text-center">Gerenciamento Escolar</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin}>

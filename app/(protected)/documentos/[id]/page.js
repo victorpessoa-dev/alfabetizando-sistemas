@@ -10,9 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast"
 import { Trash2, Upload, ArrowLeft, FileText } from "lucide-react"
 
-/* ===============================
-   SANITIZAÇÃO DE NOMES
-=============================== */
+
 function sanitizeFileName(name) {
     return name
         .normalize("NFD")
@@ -27,18 +25,15 @@ export default function DocumentosAlunoPage() {
     const { id: studentId } = useParams()
 
     const [user, setUser] = useState(null)
+    const [student, setStudent] = useState({})
     const [docs, setDocs] = useState([])
     const [loading, setLoading] = useState(true)
 
-    // Modal
     const [open, setOpen] = useState(false)
     const [file, setFile] = useState(null)
     const [fileName, setFileName] = useState("")
     const [uploading, setUploading] = useState(false)
 
-    /* =======================
-       INIT
-    ======================= */
     useEffect(() => {
         init()
     }, [])
@@ -50,13 +45,33 @@ export default function DocumentosAlunoPage() {
             return
         }
         setUser(data.user)
+        await loadStudent(data.user.id)
         await loadDocs(data.user.id)
         setLoading(false)
     }
 
-    /* =======================
-       LOAD DOCUMENTS
-    ======================= */
+    async function loadStudent(userId) {
+        const { data, error } = await supabase
+            .from("students")
+            .select("id, name_completo")
+            .eq("id", studentId)
+            .eq("user_id", userId)
+            .single()
+
+        if (error) {
+            toast({
+                title: "Erro",
+                description: "Aluno não encontrado",
+                variant: "destructive"
+            })
+            router.back()
+            return
+        }
+
+        setStudent(data)
+    }
+
+
     async function loadDocs(userId) {
         const { data, error } = await supabase
             .from("documents")
@@ -74,9 +89,6 @@ export default function DocumentosAlunoPage() {
         setDocs(data || [])
     }
 
-    /* =======================
-       UPLOAD DOCUMENT
-    ======================= */
     async function uploadDocument() {
         if (!file || !fileName) {
             toast({ title: "Erro", description: "Selecione um arquivo e informe o nome", variant: "destructive" })
@@ -89,13 +101,11 @@ export default function DocumentosAlunoPage() {
             const safeName = sanitizeFileName(fileName) + "." + ext
             const path = `${sanitizeFileName(studentId)}/documents/${Date.now()}-${safeName}`
 
-            // Upload
             const { error: uploadError } = await supabase.storage
                 .from("student-documents")
                 .upload(path, file)
             if (uploadError) throw uploadError
 
-            // URL assinada
             const { data: signed } = await supabase.storage
                 .from("student-documents")
                 .createSignedUrl(path, 60 * 60)
@@ -122,9 +132,6 @@ export default function DocumentosAlunoPage() {
         }
     }
 
-    /* =======================
-       DELETE DOCUMENT
-    ======================= */
     async function removeDocument(doc) {
         try {
             await supabase.storage.from("student-documents").remove([doc.storage_path])
@@ -136,23 +143,20 @@ export default function DocumentosAlunoPage() {
         }
     }
 
-    /* =======================
-       UI
-    ======================= */
-    if (loading) return <p className="text-center py-10">Carregando...</p>
+    if (loading) return <div className="flex justify-center items-center py-12">
+        <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+    </div>
 
     return (
         <div className="space-y-6">
-            {/* HEADER */}
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="sm" onClick={() => router.back()}>
                     <ArrowLeft className="h-4 w-4 mr-1" />
                     Voltar
                 </Button>
-                <h1 className="text-2xl font-bold">Documentos do Aluno</h1>
+                <h1 className="text-2xl font-bold">Documentos - {student.name_completo}</h1>
             </div>
 
-            {/* BOTÃO NOVO DOCUMENTO */}
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                     <Button>
@@ -188,7 +192,6 @@ export default function DocumentosAlunoPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* LISTA DE DOCUMENTOS */}
             <ul className="divide-y border rounded-md">
                 {docs.length === 0 && (
                     <li className="p-4 text-center text-muted-foreground">Nenhum documento cadastrado</li>
