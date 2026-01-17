@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Users, FileText, CreditCard, CalendarCheck, Edit3, StarIcon } from "lucide-react"
+import { ArrowLeft, FileText, CreditCard, Trash2, Edit3, StarIcon } from "lucide-react"
 
 export default function AlunoDetalhePage() {
   const supabase = createClient()
@@ -36,6 +36,27 @@ export default function AlunoDetalhePage() {
     setLoading(false)
   }
 
+  async function deleteStudent(id) {
+    const confirm = window.confirm("Tem certeza que deseja excluir este aluno?")
+    if (!confirm) return
+
+    const { error } = await supabase
+      .from("students")
+      .delete()
+      .eq("id", id)
+
+    if (error) {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive"
+      })
+    } else {
+      toast({ title: "Aluno excluído com sucesso" })
+      loadStudents()
+    }
+  }
+
   if (loading) return <div className="flex justify-center items-center py-12">
     <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
   </div>
@@ -43,7 +64,10 @@ export default function AlunoDetalhePage() {
 
   return (
     <div className="space-y-6">
-
+      <Button variant="outline" size="sm" onClick={() => router.back()}>
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        Voltar
+      </Button>
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="flex flex-col md:flex-row items-center gap-6">
@@ -61,7 +85,6 @@ export default function AlunoDetalhePage() {
               </div>
             )}
 
-            {/* DETALHES */}
             <div className="flex-1 space-y-1">
               <h1 className="text-2xl font-bold">{student.name_completo}</h1>
               {student.grade && <p className="text-sm text-muted-foreground">Série: {student.grade}</p>}
@@ -98,6 +121,14 @@ export default function AlunoDetalhePage() {
                 <CreditCard className="h-4 w-4 mr-1" /> Pagamentos
               </Button>
             </Link>
+
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => deleteStudent(student.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>

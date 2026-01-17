@@ -5,7 +5,7 @@ import { loadStudents } from "@/lib/loadStudents"
 import StudentCard from "@/components/students/AlunoCard"
 import StudentFilter from "@/components/students/AlunoFilter"
 
-export default function DocumentosPage() {
+export default function RelatorioPage() {
     const [students, setStudents] = useState([])
     const [filteredStudents, setFilteredStudents] = useState([])
     const [loading, setLoading] = useState(true)
@@ -62,7 +62,7 @@ export default function DocumentosPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold">Documentos</h1>
+            <h1 className="text-3xl font-bold">Relatorios</h1>
 
             <StudentFilter grades={grades} onFilterChange={handleFilterChange} />
 
@@ -72,7 +72,7 @@ export default function DocumentosPage() {
                         <StudentCard
                             key={student.id}
                             student={student}
-                            href={`/documentos/${student.id}`}
+                            href={`/relatorio/${student.id}`}
                         />
                     ))}
                 </div>

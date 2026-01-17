@@ -5,15 +5,15 @@ import { Card } from "@/components/ui/card"
 export default function StudentCard({ student, href }) {
     return (
         <Link href={href}>
-            <Card className="p-4 hover:shadow-md transition cursor-pointer">
+            <Card className="w-full p-6 flex items-center justify-between hover:shadow-md transition cursor-pointer min-h-[80px] max-h-[100px]">
                 <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-full overflow-hidden border flex items-center justify-center bg-muted">
+                    <div className="h-12 w-12 rounded-full overflow-hidden border flex items-center justify-center bg-muted shrink-0">
                         {student.photo_url ? (
                             <Image
                                 src={student.photo_url}
                                 alt={student.name_completo}
-                                width={56}
-                                height={56}
+                                width={48}
+                                height={48}
                                 className="h-full w-full object-cover object-center"
                             />
                         ) : (
@@ -23,7 +23,8 @@ export default function StudentCard({ student, href }) {
                         )}
                     </div>
 
-                    <div>
+                    <div className="flex flex-col justify-center">
+
                         <p className="font-semibold leading-tight">
                             {student.name_completo}
                         </p>

@@ -175,10 +175,9 @@ export default function ConfiguracoesPage() {
                             )}
                         </div>
 
-                        {/* BOTÃO EDITAR */}
                         <Dialog open={open} onOpenChange={setOpen}>
                             <DialogTrigger asChild>
-                                <Button variant="outline">Editar</Button>
+                                <Button className="bg-primary text-white hover:bg-primary/80 hover:text-white" variant="outline">Editar</Button>
                             </DialogTrigger>
 
                             <DialogContent>

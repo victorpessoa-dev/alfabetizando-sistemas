@@ -288,7 +288,7 @@ export default function PagamentosAlunoPage() {
                 variant={p.paid ? "default" : "outline"}
                 className={
                   p.paid
-                    ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                    ? "bg-primary hover:bg-primary/80 text-white border-blue-600"
                     : "border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
                 }
               >

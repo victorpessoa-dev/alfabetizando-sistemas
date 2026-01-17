@@ -105,7 +105,6 @@ export default function PresencaPage() {
 
       if (!user) throw new Error("Usuário não autenticado")
 
-      // Garante 1 presença por aluno no dia (upsert)
       const records = students.map((student) => ({
         student_id: student.id,
         attendance_date: selectedDate,
@@ -166,7 +165,7 @@ export default function PresencaPage() {
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 flex-wrap items-end">
-            <div className="flex-1 min-w-[150px]">
+            <div className="flex-1 space-y-2 min-w-[150px]">
               <Label>Data</Label>
               <Input
                 type="date"
@@ -175,7 +174,7 @@ export default function PresencaPage() {
               />
             </div>
 
-            <div className="flex-1 min-w-[150px]">
+            <div className="flex-1 space-y-2 min-w-[150px]">
               <Label>Série</Label>
               <select
                 value={selectedGrade}
