@@ -58,7 +58,7 @@ export default function ProtectedLayout({ children }) {
     { href: "/frequencia", label: "Frequência", icon: CalendarCheck },
     { href: "/pagamentos", label: "Pagamentos", icon: CreditCard },
     { href: "/avaliacoes", label: "Avaliações", icon: StarIcon },
-    // { href: "/relatorio-semanal", label: "Relatórios Semanal", icon: BarChart },
+    { href: "/relatorio", label: "Relatórios", icon: BarChart },
     { href: "/documentos", label: "Documentos", icon: FileText },
     { href: "/configuracoes", label: "Configurações", icon: Settings },
   ]

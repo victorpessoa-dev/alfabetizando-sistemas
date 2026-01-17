@@ -18,7 +18,7 @@ function sanitizeFileName(name) {
         .replace(/[^a-zA-Z0-9-_\.]/g, "_")
 }
 
-export default function DocumentosAlunoPage() {
+export default function DocumentosDetalhePage() {
     const supabase = createClient()
     const { toast } = useToast()
     const router = useRouter()

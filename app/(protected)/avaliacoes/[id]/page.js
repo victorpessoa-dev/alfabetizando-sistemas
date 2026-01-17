@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Trash2 } from "lucide-react"
 
-export default function AvaliacoesPage() {
+export default function AvaliacoesDetalhePage() {
     const supabase = createClient()
     const { id } = useParams()
     const router = useRouter()
@@ -156,12 +156,11 @@ export default function AvaliacoesPage() {
 
     return (
         <div className="space-y-6 max-w-3xl">
-            {/* HEADER */}
+
             <h1 className="text-xl font-bold">
                 Avaliações – {student.name_completo}
             </h1>
 
-            {/* FORM */}
             <Card>
                 <CardContent className="p-6 space-y-4">
                     <Input

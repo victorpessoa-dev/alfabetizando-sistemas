@@ -35,7 +35,7 @@ function formatCurrency(value) {
   })
 }
 
-export default function PagamentosAlunoPage() {
+export default function PagamentosDetalhePage() {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()

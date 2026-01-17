@@ -1,14 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { loadStudents } from "@/lib/loadStudents"
+import { useState, useEffect } from "react"
+import { useLoadStudents } from "@/components/hooks/useLoadStudents"
 import StudentCard from "@/components/students/AlunoCard"
 import StudentFilter from "@/components/students/AlunoFilter"
 
 export default function DocumentosPage() {
-    const [students, setStudents] = useState([])
+    const { students, loading } = useLoadStudents()
     const [filteredStudents, setFilteredStudents] = useState([])
-    const [loading, setLoading] = useState(true)
 
     const grades = [
         "Educação Infantil",
@@ -24,14 +23,8 @@ export default function DocumentosPage() {
     ]
 
     useEffect(() => {
-        async function fetchData() {
-            const data = await loadStudents()
-            setStudents(data)
-            setFilteredStudents(data)
-            setLoading(false)
-        }
-        fetchData()
-    }, [])
+        setFilteredStudents(students)
+    }, [students])
 
     const handleFilterChange = ({ search, grade }) => {
         const lowerSearch = search.toLowerCase()

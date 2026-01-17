@@ -1,21 +1,16 @@
 "use client"
 
-import { createClient } from "@/lib/supabase/client"
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { useState, useEffect } from "react"
+import { useLoadStudents } from "@/components/hooks/useLoadStudents"
 import StudentCard from "@/components/students/AlunoCard"
+import StudentFilter from "@/components/students/AlunoFilter"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import StudentFilter from "@/components/students/AlunoFilter"
+import Link from "next/link"
 
 export default function AlunosPage() {
-  const supabase = createClient()
-  const { toast } = useToast()
-
-  const [students, setStudents] = useState([])
-  const [filtered, setFiltered] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { students, loading } = useLoadStudents()
+  const [filteredStudents, setFilteredStudents] = useState([])
 
   const grades = [
     "Educação Infantil",
@@ -31,48 +26,26 @@ export default function AlunosPage() {
   ]
 
   useEffect(() => {
-    loadStudents()
-  }, [])
-
-  async function loadStudents() {
-    setLoading(true)
-
-    const { data, error } = await supabase
-      .from("students")
-      .select("id, name_completo, grade, guardian_name, photo_url")
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      toast({
-        title: "Erro ao carregar alunos",
-        description: error.message,
-        variant: "destructive",
-      })
-    } else {
-      setStudents(data || [])
-      setFiltered(data || [])
-    }
-
-    setLoading(false)
-  }
+    setFilteredStudents(students)
+  }, [students])
 
   const handleFilterChange = ({ search, grade }) => {
-    const term = search.toLowerCase()
-    const gradeTerm = grade.toLowerCase()
+    const lowerSearch = search.toLowerCase()
+    const lowerGrade = grade.toLowerCase()
 
-    setFiltered(
-      students.filter((s) => {
-        const matchSearch =
-          s.name_completo.toLowerCase().includes(term) ||
-          (s.guardian_name || "").toLowerCase().includes(term)
+    const filtered = students.filter((s) => {
+      const matchName =
+        s.name_completo.toLowerCase().includes(lowerSearch) ||
+        (s.guardian_name || "").toLowerCase().includes(lowerSearch)
 
-        const matchGrade = grade
-          ? (s.grade || "").toLowerCase().includes(gradeTerm)
-          : true
+      const matchGrade = grade
+        ? (s.grade || "").toLowerCase().includes(lowerGrade)
+        : true
 
-        return matchSearch && matchGrade
-      })
-    )
+      return matchName && matchGrade
+    })
+
+    setFilteredStudents(filtered)
   }
 
   if (loading) {
@@ -97,22 +70,20 @@ export default function AlunosPage() {
 
       <StudentFilter grades={grades} onFilterChange={handleFilterChange} />
 
-      <div className="flex gap-2">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {filtered.length > 0 ? (
-            filtered.map((student) => (
-              <StudentCard
-                key={student.id}
-                student={student}
-                href={`/alunos/${student.id}`}
-              />
-            ))
-          ) : (
-            <p className="text-muted-foreground text-center">
-              Nenhum aluno encontrado.
-            </p>
-          )}
-        </div>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        {filteredStudents.length > 0 ? (
+          filteredStudents.map((student) => (
+            <StudentCard
+              key={student.id}
+              student={student}
+              href={`/alunos/${student.id}`}
+            />
+          ))
+        ) : (
+          <p className="text-muted-foreground text-center">
+            Nenhum aluno encontrado.
+          </p>
+        )}
       </div>
     </div>
   )

@@ -8,19 +8,16 @@ import { Button } from "@/components/ui/button"
 
 export default function StudentFilter({ grades, onFilterChange }) {
     const [search, setSearch] = useState("")
-    const [selectedGrade, setSelectedGrade] = useState("")
+    const [grade, setGrade] = useState("")
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            onFilterChange({ search, grade: selectedGrade })
-        }, 300)
-
+        const timer = setTimeout(() => onFilterChange({ search, grade }), 300)
         return () => clearTimeout(timer)
-    }, [search, selectedGrade, onFilterChange])
+    }, [search, grade, onFilterChange])
 
     const clearFilters = () => {
         setSearch("")
-        setSelectedGrade("")
+        setGrade("")
         onFilterChange({ search: "", grade: "" })
     }
 
@@ -39,8 +36,8 @@ export default function StudentFilter({ grades, onFilterChange }) {
             <div className="flex-1 min-w-[140px]">
                 <Label className="block mb-1">Série</Label>
                 <select
-                    value={selectedGrade}
-                    onChange={(e) => setSelectedGrade(e.target.value)}
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
                     className="w-full border rounded-md p-2"
                 >
                     <option value="">Todas</option>
